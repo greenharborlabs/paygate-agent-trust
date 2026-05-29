@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: paygate-reference-service
+
+paygate:
+  enabled: ${PAYGATE_ENABLED:true}
+  backend: ${PAYGATE_BACKEND:lnbits}
+  service-name: paygate-reference-service
+  protocols:
+    mpp:
+      challenge-binding-secret: ${PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET:}
+  lnbits:
+    url: ${PAYGATE_LNBITS_URL:}
+    api-key: ${PAYGATE_LNBITS_API_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,paygate
+
+reference:
+  dns-timeout-seconds: ${REFERENCE_DNS_TIMEOUT_SECONDS:1}
+  connect-timeout-seconds: ${REFERENCE_CONNECT_TIMEOUT_SECONDS:2}
+  read-timeout-seconds: ${REFERENCE_READ_TIMEOUT_SECONDS:3}
+  total-budget-seconds: ${REFERENCE_TOTAL_BUDGET_SECONDS:6}
+  max-body-bytes: ${REFERENCE_MAX_BODY_BYTES:65536}
+  max-headers-bytes: ${REFERENCE_MAX_HEADERS_BYTES:8192}
+  max-headers-count: ${REFERENCE_MAX_HEADERS_COUNT:32}
+  cache-ttl-minutes: ${REFERENCE_CACHE_TTL_MINUTES:15}
+  max-concurrent-checks: ${REFERENCE_MAX_CONCURRENT_CHECKS:16}
+  report-signing-private-key: ${REPORT_SIGNING_PRIVATE_KEY:}
+  report-signing-public-key: ${REPORT_SIGNING_PUBLIC_KEY:}
+  report-signing-key-id: ${REPORT_SIGNING_KEY_ID:2026-05-prod}

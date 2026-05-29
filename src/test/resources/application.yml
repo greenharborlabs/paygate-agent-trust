@@ -1,0 +1,6 @@
+reference:
+  report-signing-private-key: MC4CAQAwBQYDK2VwBCIEIKFgoMB34QYC1lTcyWsgFIJcqRY2cNcV2dMHbGGmPvhD
+  report-signing-public-key: MCowBQYDK2VwAyEAgeVa2jClnW2JYB9MQVL1J0zsIrzv7QMneV5avr19sHM=
+  report-signing-key-id: test-key
+paygate:
+  enabled: false

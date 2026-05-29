@@ -1,0 +1,137 @@
+package com.greenharborlabs.paygate.reference.api;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.greenharborlabs.paygate.reference.PaygateReferenceApplication;
+import com.greenharborlabs.paygate.reference.dns.AddressClassifier;
+import com.greenharborlabs.paygate.reference.dns.DnsVettingService;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+
+@SpringBootTest(
+    classes = {PaygateReferenceApplication.class, PaygatePaymentFlowIntegrationTest.TestOverrides.class},
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestPropertySource(
+    properties = {
+      "paygate.enabled=true",
+      "paygate.test-mode=true",
+      "paygate.root-key-store=memory",
+      "paygate.service-name=paygate-reference-service",
+      "paygate.protocols.mpp.challenge-binding-secret=integration-test-secret-at-least-32-bytes-long",
+      "reference.report-signing-private-key=MC4CAQAwBQYDK2VwBCIEIKFgoMB34QYC1lTcyWsgFIJcqRY2cNcV2dMHbGGmPvhD",
+      "reference.report-signing-public-key=MCowBQYDK2VwAyEAgeVa2jClnW2JYB9MQVL1J0zsIrzv7QMneV5avr19sHM=",
+      "reference.report-signing-key-id=test-key"
+    })
+@ActiveProfiles("test")
+class PaygatePaymentFlowIntegrationTest {
+  private static final ObjectMapper MAPPER = JsonMapper.builder().build();
+  private static final String REPORT_PATH = "/api/v1/trust/report?domain=example.com&checks=dns";
+  @LocalServerPort private int port;
+
+  private String baseUrl() {
+    return "http://localhost:" + port;
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void paymentFlow() throws Exception {
+    try (var client = HttpClient.newHttpClient()) {
+      var challengeRsp =
+          client.send(
+              HttpRequest.newBuilder().uri(URI.create(baseUrl() + REPORT_PATH)).GET().build(),
+              HttpResponse.BodyHandlers.ofString());
+
+      assertThat(challengeRsp.statusCode()).isEqualTo(402);
+      List<String> wwwAuthHeaders = challengeRsp.headers().allValues("WWW-Authenticate");
+      assertThat(wwwAuthHeaders).anyMatch(h -> h.startsWith("L402"));
+      assertThat(wwwAuthHeaders).anyMatch(h -> h.startsWith("Payment"));
+
+      Map<String, Object> challengeBody = MAPPER.readValue(challengeRsp.body(), Map.class);
+      String preimageHex = (String) challengeBody.get("test_preimage");
+      Map<String, Object> protocols = (Map<String, Object>) challengeBody.get("protocols");
+      Map<String, Object> paymentChallenge = (Map<String, Object>) protocols.get("Payment");
+      String credentialJson =
+          MAPPER.writeValueAsString(
+              Map.of(
+                  "challenge",
+                  paymentChallenge,
+                  "source",
+                  "test-client",
+                  "payload",
+                  Map.of("preimage", preimageHex)));
+      String credential =
+          Base64.getUrlEncoder()
+              .withoutPadding()
+              .encodeToString(credentialJson.getBytes(StandardCharsets.UTF_8));
+
+      var paidRsp =
+          client.send(
+              HttpRequest.newBuilder()
+                  .uri(URI.create(baseUrl() + REPORT_PATH))
+                  .header("Authorization", "Payment " + credential)
+                  .GET()
+                  .build(),
+              HttpResponse.BodyHandlers.ofString());
+
+      assertThat(paidRsp.statusCode()).isEqualTo(200);
+      assertThat(paidRsp.headers().firstValue("Payment-Receipt")).isPresent();
+      Map<String, Object> report = MAPPER.readValue(paidRsp.body(), Map.class);
+      assertThat(report).containsKeys("reportDigest", "signature", "checks");
+
+      Map<String, Object> catalog =
+          MAPPER.readValue(
+              client.send(
+                      HttpRequest.newBuilder().uri(URI.create(baseUrl() + "/api/v1/catalog")).GET().build(),
+                      HttpResponse.BodyHandlers.ofString())
+                  .body(),
+              Map.class);
+      Map<String, Object> signature = (Map<String, Object>) report.get("signature");
+      Map<String, Object> catalogSig = (Map<String, Object>) catalog.get("signature");
+      Map<String, Object> signable =
+          Map.of("domain", report.get("domain"), "checkedAt", report.get("checkedAt"), "checks", report.get("checks"));
+      assertThat(verify(signable, (String) signature.get("value"), (String) catalogSig.get("publicKey"))).isTrue();
+    }
+  }
+
+  private boolean verify(Map<String, Object> payload, String signatureBase64Url, String publicKeyBase64) throws Exception {
+    PublicKey key =
+        KeyFactory.getInstance("Ed25519")
+            .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicKeyBase64)));
+    Signature verifier = Signature.getInstance("Ed25519");
+    verifier.initVerify(key);
+    verifier.update(MAPPER.writeValueAsBytes(payload));
+    return verifier.verify(Base64.getUrlDecoder().decode(signatureBase64Url));
+  }
+
+  @TestConfiguration
+  static class TestOverrides {
+    @Bean
+    @Primary
+    DnsVettingService dnsVettingService() {
+      return new DnsVettingService(
+          new AddressClassifier(),
+          domain -> new InetAddress[] {InetAddress.getByName("93.184.216.34")});
+    }
+  }
+}

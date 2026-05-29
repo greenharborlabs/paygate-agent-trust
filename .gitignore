@@ -1,0 +1,17 @@
+# Gradle / Java build output
+.gradle/
+build/
+out/
+*.class
+
+# IDE metadata
+.idea/
+*.iml
+
+# Local environment and generated secrets
+.env
+.env.*
+*.pem
+
+# OS files
+.DS_Store
