@@ -10,7 +10,11 @@ public class TrustReportPriceCalculator {
     long price = basePrice;
     if (request.checks().contains(TrustCheck.TLS)) price += 5;
     if (request.checks().contains(TrustCheck.HTTP)) price += 10;
+    if (request.checks().contains(TrustCheck.REDIRECTS)) price += 5;
     if (request.checks().contains(TrustCheck.ROBOTS)) price += 5;
+    if (request.checks().contains(TrustCheck.SECURITY_HEADERS)) price += 5;
+    if (request.checks().contains(TrustCheck.CONTENT)) price += 5;
+    if (request.checks().contains(TrustCheck.RISK)) price += 5;
     return Math.min(price, 50);
   }
 }

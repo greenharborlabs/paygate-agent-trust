@@ -9,7 +9,12 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
@@ -38,6 +43,8 @@ class ReportSignerTest {
     assertThat(signed.algorithm()).isEqualTo("Ed25519");
     assertThat(signed.signature()).isNotBlank();
     assertThat(verify(payload, signed.signature(), signed.publicKey())).isTrue();
+    assertThat(signer.verify(payload, signed.signature())).isTrue();
+    assertThat(signer.digest(payload)).isEqualTo(signed.digest());
   }
 
   @Test
@@ -47,6 +54,45 @@ class ReportSignerTest {
     var signed = signer.sign(payload);
     var tampered = Map.of("domain", "evil.com", "checks", Map.of("dns", Map.of("answers", "ok")));
     assertThat(verify(tampered, signed.signature(), signed.publicKey())).isFalse();
+    assertThat(signer.verify(tampered, signed.signature())).isFalse();
+  }
+
+  @Test
+  void verificationIgnoresObjectKeyOrder() throws Exception {
+    var signer = new ReportSigner(PROPS, new ObjectMapper());
+    Map<String, Object> dns = new LinkedHashMap<>();
+    dns.put("answers", List.of("93.184.216.34"));
+    dns.put("status", "ok");
+    Map<String, Object> checks = new LinkedHashMap<>();
+    checks.put("dns", dns);
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("domain", "example.com");
+    payload.put("checkedAt", "2026-05-29T20:00:00Z");
+    payload.put("checks", checks);
+    payload.put("verdict", Map.of("status", "ok", "warnings", List.of()));
+
+    var signed = signer.sign(payload);
+
+    Map<String, Object> reorderedDns = new LinkedHashMap<>();
+    reorderedDns.put("status", "ok");
+    reorderedDns.put("answers", List.of("93.184.216.34"));
+    Map<String, Object> reorderedChecks = new LinkedHashMap<>();
+    reorderedChecks.put("dns", reorderedDns);
+    Map<String, Object> reordered = new LinkedHashMap<>();
+    reordered.put("verdict", Map.of("warnings", List.of(), "status", "ok"));
+    reordered.put("checks", reorderedChecks);
+    reordered.put("checkedAt", "2026-05-29T20:00:00Z");
+    reordered.put("domain", "example.com");
+
+    assertThat(signer.digest(reordered)).isEqualTo(signed.digest());
+    assertThat(signer.verify(reordered, signed.signature())).isTrue();
+    assertThat(verify(reordered, signed.signature(), signed.publicKey())).isTrue();
+  }
+
+  @Test
+  void exposesRawPublicKeyAsBase64Url() {
+    var signer = new ReportSigner(PROPS, new ObjectMapper());
+    assertThat(signer.rawPublicKeyBase64Url()).isEqualTo("geVa2jClnW2JYB9MQVL1J0zsIrzv7QMneV5avr19sHM");
   }
 
   @Test
@@ -66,7 +112,29 @@ class ReportSignerTest {
     byte[] signature = Base64.getUrlDecoder().decode(signatureBase64Url);
     Signature verifier = Signature.getInstance("Ed25519");
     verifier.initVerify(key);
-    verifier.update(new ObjectMapper().writeValueAsBytes(payload));
+    verifier.update(new ObjectMapper().writeValueAsBytes(canonicalize(payload)));
     return verifier.verify(signature);
+  }
+
+  private Object canonicalize(Object value) {
+    if (value instanceof Map<?, ?> map) {
+      Map<String, Object> sorted = new LinkedHashMap<>();
+      map.entrySet().stream()
+          .sorted(Comparator.comparing(entry -> String.valueOf(entry.getKey())))
+          .forEach(entry -> sorted.put(String.valueOf(entry.getKey()), canonicalize(entry.getValue())));
+      return sorted;
+    }
+    if (value instanceof List<?> list) {
+      return list.stream().map(this::canonicalize).toList();
+    }
+    if (value != null && value.getClass().isArray()) {
+      List<Object> list = new ArrayList<>();
+      int length = Array.getLength(value);
+      for (int i = 0; i < length; i++) {
+        list.add(canonicalize(Array.get(value, i)));
+      }
+      return list;
+    }
+    return value;
   }
 }

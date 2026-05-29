@@ -61,8 +61,13 @@ public class TrustReportService {
     if (request.checks().contains(TrustCheck.TLS)) {
       checks.put("tls", Map.of("status", "ok"));
     }
-    Map<String, Object> signable =
-        Map.of("domain", request.normalizedDomain(), "checkedAt", Instant.now().toString(), "checks", checks);
+    addDeferredChecks(request, checks);
+    Map<String, Object> verdict = Map.of("status", warnings.isEmpty() ? "ok" : "warn", "warnings", warnings);
+    Map<String, Object> signable = new LinkedHashMap<>();
+    signable.put("domain", request.normalizedDomain());
+    signable.put("checkedAt", Instant.now().toString());
+    signable.put("checks", checks);
+    signable.put("verdict", verdict);
     var sig = reportSigner.sign(signable);
 
     Map<String, Object> report = new LinkedHashMap<>();
@@ -72,9 +77,28 @@ public class TrustReportService {
     report.put("domain", request.normalizedDomain());
     report.put("checkedAt", signable.get("checkedAt"));
     report.put("checks", checks);
-    report.put("verdict", Map.of("status", warnings.isEmpty() ? "ok" : "warn", "warnings", warnings));
+    report.put("verdict", verdict);
     report.put("cache", Map.of("hit", false, "ttlSeconds", 900));
     cache.put(cacheKey, report);
     return report;
+  }
+
+  private void addDeferredChecks(TrustReportRequest request, Map<String, Object> checks) {
+    if (request.checks().contains(TrustCheck.REDIRECTS)) {
+      checks.put("redirects", deferredCheck());
+    }
+    if (request.checks().contains(TrustCheck.SECURITY_HEADERS)) {
+      checks.put("security_headers", deferredCheck());
+    }
+    if (request.checks().contains(TrustCheck.CONTENT)) {
+      checks.put("content", deferredCheck());
+    }
+    if (request.checks().contains(TrustCheck.RISK)) {
+      checks.put("risk", deferredCheck());
+    }
+  }
+
+  private Map<String, Object> deferredCheck() {
+    return Map.of("status", "not_evaluated", "reason", "deferred_to_later_wave");
   }
 }

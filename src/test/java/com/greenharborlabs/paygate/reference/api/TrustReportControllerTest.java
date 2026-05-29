@@ -12,6 +12,7 @@ import com.greenharborlabs.paygate.reference.http.SafeHttpClient;
 import com.greenharborlabs.paygate.reference.pricing.TrustReportPriceCalculator;
 import com.greenharborlabs.paygate.reference.report.ReportSigner;
 import com.greenharborlabs.paygate.reference.report.TrustReportService;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -48,6 +49,26 @@ class TrustReportControllerTest {
               assertThat(problem.code()).isEqualTo("UNSUPPORTED_CHECK");
               assertThat(problem.status()).isEqualTo(HttpStatus.BAD_REQUEST);
             });
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void reportIncludesDeferredEntriesForFutureChecks() {
+    Map<String, Object> report = controller.report("example.com", "redirects,security_headers,content,risk");
+    Map<String, Object> checks = (Map<String, Object>) report.get("checks");
+
+    assertThat(checks.keySet()).containsExactly("redirects", "security_headers", "content", "risk");
+    assertThat(checks.values())
+        .allSatisfy(
+            check -> {
+              Map<String, Object> value = (Map<String, Object>) check;
+              assertThat(value)
+                  .containsEntry("status", "not_evaluated")
+                  .containsEntry("reason", "deferred_to_later_wave");
+            });
+    assertThat((Map<String, Object>) report.get("verdict"))
+        .containsEntry("status", "ok")
+        .containsEntry("warnings", List.of());
   }
 
   private static TrustReportController buildController() {
