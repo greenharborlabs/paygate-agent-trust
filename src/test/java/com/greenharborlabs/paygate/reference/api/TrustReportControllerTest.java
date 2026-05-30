@@ -12,10 +12,12 @@ import com.greenharborlabs.paygate.reference.http.SafeHttpClient;
 import com.greenharborlabs.paygate.reference.pricing.TrustReportPriceCalculator;
 import com.greenharborlabs.paygate.reference.report.ReportSigner;
 import com.greenharborlabs.paygate.reference.report.TrustReportService;
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import tools.jackson.databind.ObjectMapper;
 
 class TrustReportControllerTest {
@@ -58,7 +60,10 @@ class TrustReportControllerTest {
     Map<String, Object> checks = (Map<String, Object>) report.get("checks");
 
     assertThat(checks.keySet()).containsExactly("redirects", "security_headers", "content", "risk");
-    assertThat(checks.values())
+    assertThat((Map<String, Object>) checks.get("redirects"))
+        .containsEntry("status", "ok")
+        .containsEntry("terminalStatus", 200);
+    assertThat(List.of(checks.get("security_headers"), checks.get("content"), checks.get("risk")))
         .allSatisfy(
             check -> {
               Map<String, Object> value = (Map<String, Object>) check;
@@ -92,9 +97,20 @@ class TrustReportControllerTest {
     var service =
         new TrustReportService(
             new DnsVettingService(new AddressClassifier(), domain -> new java.net.InetAddress[] {java.net.InetAddress.getByName("93.184.216.34")}),
-            new SafeHttpClient(props),
+            new StubSafeHttpClient(props),
             signer,
             props);
     return new TrustReportController(parser, calc, service);
+  }
+
+  private static class StubSafeHttpClient extends SafeHttpClient {
+    private StubSafeHttpClient(PaygateReferenceProperties properties) {
+      super(properties);
+    }
+
+    @Override
+    public SafeHttpResponse fetch(String domain, List<InetAddress> vettedAddresses, HttpMethod method, String path) {
+      return new SafeHttpResponse(200, Map.of(), "");
+    }
   }
 }

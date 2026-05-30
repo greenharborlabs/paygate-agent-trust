@@ -2,12 +2,15 @@ package com.greenharborlabs.paygate.reference.report;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.greenharborlabs.paygate.reference.api.ApiProblem;
 import com.greenharborlabs.paygate.reference.config.PaygateReferenceProperties;
 import com.greenharborlabs.paygate.reference.dns.DnsVettingService;
 import com.greenharborlabs.paygate.reference.domain.TrustCheck;
 import com.greenharborlabs.paygate.reference.domain.TrustReportRequest;
 import com.greenharborlabs.paygate.reference.http.SafeHttpClient;
+import com.greenharborlabs.paygate.reference.http.TlsCertificateInspector;
 import java.net.InetAddress;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,6 +24,10 @@ public class TrustReportService {
   private final DnsVettingService dnsVettingService;
   private final SafeHttpClient safeHttpClient;
   private final ReportSigner reportSigner;
+  private final PaygateReferenceProperties properties;
+  private final TlsCertificateInspector tlsCertificateInspector;
+  private final RedirectAnalyzer redirectAnalyzer;
+  private final RobotsPolicyParser robotsPolicyParser;
   private final Cache<String, Map<String, Object>> cache;
 
   public TrustReportService(
@@ -31,6 +38,10 @@ public class TrustReportService {
     this.dnsVettingService = dnsVettingService;
     this.safeHttpClient = safeHttpClient;
     this.reportSigner = reportSigner;
+    this.properties = properties;
+    this.tlsCertificateInspector = new TlsCertificateInspector(Duration.ofSeconds(properties.connectTimeoutSeconds()));
+    this.redirectAnalyzer = new RedirectAnalyzer(dnsVettingService, safeHttpClient);
+    this.robotsPolicyParser = new RobotsPolicyParser();
     this.cache = Caffeine.newBuilder().expireAfterWrite(properties.cacheTtl()).maximumSize(5000).build();
   }
 
@@ -54,12 +65,19 @@ public class TrustReportService {
       if (rsp.statusCode() >= 300 && rsp.statusCode() < 400) warnings.add("redirect-not-followed");
     }
     if (request.checks().contains(TrustCheck.ROBOTS)) {
-      var robots = safeHttpClient.fetch(request.normalizedDomain(), addresses, HttpMethod.GET, "/robots.txt");
-      var ai = safeHttpClient.fetch(request.normalizedDomain(), addresses, HttpMethod.GET, "/ai.txt");
-      checks.put("robots", Map.of("robotsStatus", robots.statusCode(), "aiStatus", ai.statusCode()));
+      Map<String, Object> robots = robotsCheck(request.normalizedDomain(), addresses);
+      checks.put("robots", robots);
+      warnings.addAll(checkWarnings(robots, "robots"));
     }
     if (request.checks().contains(TrustCheck.TLS)) {
-      checks.put("tls", Map.of("status", "ok"));
+      Map<String, Object> tls = tlsCertificateInspector.inspect(request.normalizedDomain(), addresses);
+      checks.put("tls", tls);
+      warnings.addAll(checkWarnings(tls, "tls"));
+    }
+    if (request.checks().contains(TrustCheck.REDIRECTS)) {
+      Map<String, Object> redirects = redirectAnalyzer.analyze(request.normalizedDomain(), addresses);
+      checks.put("redirects", redirects);
+      warnings.addAll(checkWarnings(redirects, "redirects"));
     }
     addDeferredChecks(request, checks);
     Map<String, Object> verdict = Map.of("status", warnings.isEmpty() ? "ok" : "warn", "warnings", warnings);
@@ -84,9 +102,6 @@ public class TrustReportService {
   }
 
   private void addDeferredChecks(TrustReportRequest request, Map<String, Object> checks) {
-    if (request.checks().contains(TrustCheck.REDIRECTS)) {
-      checks.put("redirects", deferredCheck());
-    }
     if (request.checks().contains(TrustCheck.SECURITY_HEADERS)) {
       checks.put("security_headers", deferredCheck());
     }
@@ -100,5 +115,60 @@ public class TrustReportService {
 
   private Map<String, Object> deferredCheck() {
     return Map.of("status", "not_evaluated", "reason", "deferred_to_later_wave");
+  }
+
+  private Map<String, Object> robotsCheck(String domain, List<InetAddress> addresses) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    List<String> warnings = new ArrayList<>();
+    try {
+      var robots = safeHttpClient.fetch(domain, addresses, HttpMethod.GET, "/robots.txt");
+      result.put("robotsStatus", robots.statusCode());
+      if (robots.statusCode() == 404) {
+        result.put("status", "missing");
+      } else if (robots.statusCode() >= 200 && robots.statusCode() < 300) {
+        Map<String, Object> policy = robotsPolicyParser.parse(robots.body());
+        result.putAll(policy);
+        if (robots.body().length() >= properties.maxBodyBytes()) {
+          warnings.add("robots-body-capped");
+        }
+      } else {
+        result.put("status", "warn");
+        warnings.add("robots-fetch-status-" + robots.statusCode());
+      }
+    } catch (ApiProblem problem) {
+      result.put("status", "warn");
+      result.put("robotsStatus", "fetch_failed");
+      result.put("reason", problem.code());
+      warnings.add("robots-fetch-failed");
+    }
+
+    try {
+      var ai = safeHttpClient.fetch(domain, addresses, HttpMethod.GET, "/ai.txt");
+      result.put("aiStatus", ai.statusCode());
+      if (ai.statusCode() >= 200 && ai.statusCode() < 300) {
+        result.put("aiSnippet", snippet(ai.body()));
+      }
+    } catch (ApiProblem problem) {
+      result.put("aiStatus", "fetch_failed");
+      warnings.add("ai-txt-fetch-failed");
+    }
+    warnings.addAll(asStringList(result.get("warnings")));
+    result.put("warnings", warnings.stream().distinct().toList());
+    if (!result.containsKey("status")) result.put("status", warnings.isEmpty() ? "ok" : "warn");
+    return result;
+  }
+
+  private List<String> checkWarnings(Map<String, Object> check, String prefix) {
+    return asStringList(check.get("warnings")).stream().map(warning -> prefix + ":" + warning).toList();
+  }
+
+  private List<String> asStringList(Object value) {
+    if (!(value instanceof List<?> values)) return List.of();
+    return values.stream().map(String::valueOf).toList();
+  }
+
+  private String snippet(String body) {
+    int limit = Math.min(body.length(), Math.min(properties.maxBodyBytes(), 512));
+    return body.substring(0, limit);
   }
 }
