@@ -58,13 +58,89 @@ class TrustReportServiceTest {
     assertThat((List<String>) verdict.get("warnings")).contains("redirects:redirect-unsafe-target");
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  void securityHeadersAndContentUseCapturedRootResponseAndPropagateWarnings() throws Exception {
+    FakeSafeHttpClient http = new FakeSafeHttpClient(properties);
+    http.response(
+        "/",
+        200,
+        Map.of(
+            "Content-Type", "text/html",
+            "Strict-Transport-Security", "max-age=120",
+            "Content-Security-Policy", "script-src * 'unsafe-inline'",
+            "X-Robots-Tag", "noindex"),
+        """
+        <html><body>
+          <form action="/login"><input type="password"></form>
+          Subscribe to continue reading.
+        </body></html>
+        """);
+    TrustReportService service = service(http, domain -> "93.184.216.34");
+
+    Map<String, Object> report =
+        service.createReport(
+            new TrustReportRequest(
+                "example.com",
+                "example.com",
+                Set.of(TrustCheck.HTTP, TrustCheck.SECURITY_HEADERS, TrustCheck.CONTENT)));
+    Map<String, Object> checks = (Map<String, Object>) report.get("checks");
+    Map<String, Object> securityHeaders = (Map<String, Object>) checks.get("security_headers");
+    Map<String, Object> content = (Map<String, Object>) checks.get("content");
+    Map<String, Object> verdict = (Map<String, Object>) report.get("verdict");
+
+    assertThat(http.fetchCount("/")).isEqualTo(1);
+    assertThat(securityHeaders).containsEntry("status", "warn");
+    assertThat(content).containsEntry("analyzed", true).containsEntry("kind", "html");
+    assertThat((List<String>) verdict.get("warnings"))
+        .contains(
+            "security_headers:hsts-weak",
+            "security_headers:csp-weak",
+            "content:login-form-detected",
+            "content:paywall-detected",
+            "content:noindex-detected");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void selectedRiskCheckScoresPopulatedChecksInsteadOfReturningDeferredPlaceholder() throws Exception {
+    FakeSafeHttpClient http = new FakeSafeHttpClient(properties);
+    http.response(
+        "/",
+        200,
+        Map.of("Content-Type", "text/html"),
+        "<html><body><form action=\"/login\"><input type=\"password\"></form></body></html>");
+    TrustReportService service = service(http, domain -> "93.184.216.34");
+
+    Map<String, Object> report =
+        service.createReport(
+            new TrustReportRequest(
+                "example.com",
+                "example.com",
+                Set.of(TrustCheck.HTTP, TrustCheck.SECURITY_HEADERS, TrustCheck.CONTENT, TrustCheck.RISK)));
+    Map<String, Object> checks = (Map<String, Object>) report.get("checks");
+    Map<String, Object> risk = (Map<String, Object>) checks.get("risk");
+    List<Map<String, Object>> explanations = (List<Map<String, Object>>) risk.get("explanations");
+    List<Map<String, Object>> notEvaluated = (List<Map<String, Object>>) risk.get("notEvaluated");
+
+    assertThat(risk).containsKeys("score", "level", "explanations", "notEvaluated");
+    assertThat(risk).doesNotContainEntry("status", "not_evaluated");
+    assertThat((Integer) risk.get("score")).isGreaterThan(0);
+    assertThat(explanations.stream().map(explanation -> String.valueOf(explanation.get("path"))).toList())
+        .contains("checks.security_headers.findings.hsts.state", "checks.content.login.detected");
+    assertThat(notEvaluated.stream().map(entry -> String.valueOf(entry.get("path"))).toList())
+        .contains("checks.tls", "checks.redirects", "checks.robots");
+  }
+
   private TrustReportService service(FakeSafeHttpClient http, AddressForDomain addressForDomain) {
+    ReportSigner signer = new ReportSigner(properties, new ObjectMapper());
     return new TrustReportService(
         new DnsVettingService(
             new AddressClassifier(),
             domain -> new InetAddress[] {InetAddress.getByName(addressForDomain.address(domain))}),
         http,
-        new ReportSigner(properties, new ObjectMapper()),
+        signer,
+        new ReceiptBindingService(signer),
         properties);
   }
 
@@ -75,6 +151,7 @@ class TrustReportServiceTest {
 
   private static class FakeSafeHttpClient extends SafeHttpClient {
     private final Map<String, SafeHttpResponse> responses = new LinkedHashMap<>();
+    private final Map<String, Integer> fetchCounts = new LinkedHashMap<>();
 
     private FakeSafeHttpClient(PaygateReferenceProperties properties) {
       super(properties);
@@ -86,7 +163,12 @@ class TrustReportServiceTest {
 
     @Override
     public SafeHttpResponse fetch(String domain, List<InetAddress> vettedAddresses, HttpMethod method, String path) {
+      fetchCounts.merge(path, 1, Integer::sum);
       return responses.get(path);
+    }
+
+    private int fetchCount(String path) {
+      return fetchCounts.getOrDefault(path, 0);
     }
   }
 }

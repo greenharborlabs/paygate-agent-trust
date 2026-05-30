@@ -120,6 +120,31 @@ class VerificationControllerTest {
 
   @Test
   @SuppressWarnings("unchecked")
+  void verifyEndpointValidatesReceiptBindingWhenPresent() throws Exception {
+    Map<String, Object> report =
+        trustReportService.createReport(new TrustReportRequest("example.com", "example.com", Set.of(TrustCheck.DNS)));
+    Map<String, Object> boundReport = trustReportService.bindReceipt(report, "payment-receipt-header-value");
+
+    assertThat(post("/api/v1/trust/verify", boundReport))
+        .containsEntry("valid", true)
+        .containsEntry("signatureValid", true)
+        .containsEntry("digestMatches", true)
+        .containsEntry("receiptBindingValid", true);
+
+    Map<String, Object> tamperedReport = mutableReport(boundReport);
+    Map<String, Object> binding = new LinkedHashMap<>((Map<String, Object>) boundReport.get("receiptBinding"));
+    binding.put("reportDigest", "sha256:tampered");
+    tamperedReport.put("receiptBinding", binding);
+
+    assertThat(post("/api/v1/trust/verify", tamperedReport))
+        .containsEntry("valid", false)
+        .containsEntry("signatureValid", true)
+        .containsEntry("digestMatches", true)
+        .containsEntry("receiptBindingValid", false);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void verifyEndpointReturnsInvalidForUnknownKid() throws Exception {
     Map<String, Object> report =
         trustReportService.createReport(new TrustReportRequest("example.com", "example.com", Set.of(TrustCheck.DNS)));

@@ -4,6 +4,7 @@ import com.greenharborlabs.paygate.reference.domain.TrustReportRequestParser;
 import com.greenharborlabs.paygate.reference.pricing.TrustReportPriceCalculator;
 import com.greenharborlabs.paygate.reference.report.TrustReportService;
 import com.greenharborlabs.paygate.spring.PaymentRequired;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,7 +33,9 @@ public class TrustReportController {
 
   @PaymentRequired(priceSats = 10, pricingStrategy = "trustReportPricer")
   @GetMapping("/api/v1/trust/report")
-  public Map<String, Object> report(@RequestParam String domain, @RequestParam(required = false) String checks) {
-    return trustReportService.createReport(parser.parse(domain, checks));
+  public Map<String, Object> report(
+      @RequestParam String domain, @RequestParam(required = false) String checks, HttpServletResponse response) {
+    Map<String, Object> report = trustReportService.createReport(parser.parse(domain, checks));
+    return trustReportService.bindReceipt(report, response.getHeader("Payment-Receipt"));
   }
 }

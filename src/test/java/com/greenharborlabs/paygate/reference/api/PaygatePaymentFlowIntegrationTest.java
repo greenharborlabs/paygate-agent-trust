@@ -99,9 +99,9 @@ class PaygatePaymentFlowIntegrationTest {
               HttpResponse.BodyHandlers.ofString());
 
       assertThat(paidRsp.statusCode()).isEqualTo(200);
-      assertThat(paidRsp.headers().firstValue("Payment-Receipt")).isPresent();
+      String receipt = paidRsp.headers().firstValue("Payment-Receipt").orElseThrow();
       Map<String, Object> report = MAPPER.readValue(paidRsp.body(), Map.class);
-      assertThat(report).containsKeys("reportDigest", "signature", "checks");
+      assertThat(report).containsKeys("reportDigest", "signature", "checks", "receiptBinding");
 
       Map<String, Object> catalog =
           MAPPER.readValue(
@@ -111,6 +111,13 @@ class PaygatePaymentFlowIntegrationTest {
                   .body(),
               Map.class);
       Map<String, Object> signature = (Map<String, Object>) report.get("signature");
+      Map<String, Object> receiptBinding = (Map<String, Object>) report.get("receiptBinding");
+      assertThat(receiptBinding)
+          .containsEntry("receipt", receipt)
+          .containsEntry("reportDigest", report.get("reportDigest"))
+          .containsEntry("reportSignature", signature.get("value"))
+          .containsKey("bindingDigest")
+          .containsKey("signature");
       Map<String, Object> catalogSig = (Map<String, Object>) catalog.get("signature");
       Map<String, Object> signable = new LinkedHashMap<>();
       signable.put("domain", report.get("domain"));
@@ -118,7 +125,37 @@ class PaygatePaymentFlowIntegrationTest {
       signable.put("checks", report.get("checks"));
       signable.put("verdict", report.get("verdict"));
       assertThat(verify(signable, (String) signature.get("value"), (String) catalogSig.get("publicKey"))).isTrue();
+
+      Map<String, Object> verification = post(client, "/api/v1/trust/verify", report);
+      assertThat(verification)
+          .containsEntry("valid", true)
+          .containsEntry("signatureValid", true)
+          .containsEntry("digestMatches", true)
+          .containsEntry("receiptBindingValid", true);
+
+      Map<String, Object> tamperedReport = new LinkedHashMap<>(report);
+      Map<String, Object> tamperedBinding = new LinkedHashMap<>(receiptBinding);
+      tamperedBinding.put("receipt", receipt + "-tampered");
+      tamperedReport.put("receiptBinding", tamperedBinding);
+      assertThat(post(client, "/api/v1/trust/verify", tamperedReport))
+          .containsEntry("valid", false)
+          .containsEntry("signatureValid", true)
+          .containsEntry("digestMatches", true)
+          .containsEntry("receiptBindingValid", false);
     }
+  }
+
+  private Map<String, Object> post(HttpClient client, String path, Map<String, Object> body) throws Exception {
+    var response =
+        client.send(
+            HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl() + path))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)))
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    assertThat(response.statusCode()).isEqualTo(200);
+    return MAPPER.readValue(response.body(), Map.class);
   }
 
   private boolean verify(Map<String, Object> payload, String signatureBase64Url, String publicKeyBase64) throws Exception {

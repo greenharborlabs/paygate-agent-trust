@@ -10,14 +10,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class ReportVerificationService {
   private final ReportSigner reportSigner;
+  private final ReceiptBindingService receiptBindingService;
   private final PaygateReferenceProperties properties;
 
-  public ReportVerificationService(ReportSigner reportSigner, PaygateReferenceProperties properties) {
+  public ReportVerificationService(
+      ReportSigner reportSigner, ReceiptBindingService receiptBindingService, PaygateReferenceProperties properties) {
     this.reportSigner = reportSigner;
+    this.receiptBindingService = receiptBindingService;
     this.properties = properties;
   }
 
-  @SuppressWarnings("unchecked")
   public Map<String, Object> verify(Map<String, Object> report) {
     Object signatureValue = report.get("signature");
     if (!(signatureValue instanceof Map<?, ?> signature)) {
@@ -36,13 +38,15 @@ public class ReportVerificationService {
     boolean signatureValid = properties.reportSigningKeyId().equals(keyId) && reportSigner.verify(canonicalPayload, value);
 
     Map<String, Object> result = new LinkedHashMap<>();
-    result.put("valid", signatureValid && digestMatches);
+    boolean receiptBindingPresent = report.containsKey("receiptBinding");
+    boolean receiptBindingValid = !receiptBindingPresent || receiptBindingValid(report, keyId);
+    result.put("valid", signatureValid && digestMatches && receiptBindingValid);
     result.put("reportDigest", reportDigest);
     result.put("keyId", keyId);
     result.put("signatureValid", signatureValid);
     result.put("digestMatches", digestMatches);
-    if (report.containsKey("receiptBinding")) {
-      result.put("receiptBindingValid", false);
+    if (receiptBindingPresent) {
+      result.put("receiptBindingValid", receiptBindingValid);
     }
     return result;
   }
@@ -68,5 +72,11 @@ public class ReportVerificationService {
     canonicalPayload.put("checks", report.get("checks"));
     canonicalPayload.put("verdict", report.get("verdict"));
     return canonicalPayload;
+  }
+
+  private boolean receiptBindingValid(Map<String, Object> report, String keyId) {
+    Object binding = report.get("receiptBinding");
+    if (!(binding instanceof Map<?, ?> bindingMap)) return false;
+    return receiptBindingService.verify(report, bindingMap, keyId);
   }
 }
