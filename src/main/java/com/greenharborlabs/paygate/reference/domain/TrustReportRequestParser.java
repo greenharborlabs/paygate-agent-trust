@@ -18,18 +18,22 @@ public class TrustReportRequestParser {
     String normalized = domainValidator.normalize(domain);
     Set<TrustCheck> checks = new LinkedHashSet<>();
     if (checksParam == null || checksParam.isBlank()) {
-      checks.add(TrustCheck.DNS);
+      checks.addAll(TrustCheck.comprehensiveDefault());
       return new TrustReportRequest(domain, normalized, checks);
     }
     for (String token : checksParam.split(",")) {
-      TrustCheck check = TrustCheck.parse(token.trim());
+      String normalizedToken = token.trim();
+      if (normalizedToken.isEmpty()) {
+        continue;
+      }
+      TrustCheck check = TrustCheck.parse(normalizedToken);
       if (check == null) {
-        throw new ApiProblem("UNSUPPORTED_CHECK", HttpStatus.BAD_REQUEST, false, "Unsupported check: " + token.trim());
+        throw new ApiProblem("UNSUPPORTED_CHECK", HttpStatus.BAD_REQUEST, false, "Unsupported check: " + normalizedToken);
       }
       checks.add(check);
     }
     if (checks.isEmpty()) {
-      checks.add(TrustCheck.DNS);
+      checks.addAll(TrustCheck.comprehensiveDefault());
     }
     return new TrustReportRequest(domain, normalized, checks);
   }
