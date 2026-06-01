@@ -92,6 +92,7 @@ class TrustReportControllerTest {
         .containsEntry("warnings", List.of("unsupported-content"));
 
     Map<String, Object> risk = (Map<String, Object>) checks.get("risk");
+    assertThat(report.get("risk")).isEqualTo(risk);
     List<Map<String, Object>> explanations = (List<Map<String, Object>>) risk.get("explanations");
     List<Map<String, Object>> notEvaluated = (List<Map<String, Object>>) risk.get("notEvaluated");
     assertThat(risk)
@@ -108,7 +109,14 @@ class TrustReportControllerTest {
             "checks.security_headers.findings.x_content_type_options.state",
             "checks.content.status");
     assertThat(notEvaluated.stream().map(entry -> String.valueOf(entry.get("path"))).toList())
-        .containsExactly("checks.dns", "checks.tls", "checks.http", "checks.robots");
+        .containsExactly(
+            "checks.dns",
+            "checks.tls",
+            "checks.http",
+            "checks.robots",
+            "providers.phishing_malware",
+            "providers.reputation",
+            "providers.domain_registration");
     assertThat((Map<String, Object>) report.get("verdict"))
         .containsEntry("status", "warn")
         .containsEntry(

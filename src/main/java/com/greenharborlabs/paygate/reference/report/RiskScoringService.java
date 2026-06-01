@@ -9,6 +9,8 @@ import java.util.Map;
 final class RiskScoringService {
   private static final List<String> EXPECTED_CHECKS =
       List.of("dns", "tls", "http", "redirects", "robots", "security_headers", "content");
+  private static final List<String> DEFERRED_PROVIDER_CHECKS =
+      List.of("providers.phishing_malware", "providers.reputation", "providers.domain_registration");
   private static final List<SecurityHeaderRule> SECURITY_HEADER_RULES =
       List.of(
           new SecurityHeaderRule("hsts", 15, 8),
@@ -35,6 +37,9 @@ final class RiskScoringService {
         continue;
       }
       score += scoreCheck(checkName, typedCheck, explanations);
+    }
+    for (String providerCheck : DEFERRED_PROVIDER_CHECKS) {
+      notEvaluated.add(notEvaluated(providerCheck, "deferred_provider_not_configured"));
     }
 
     int boundedScore = Math.min(100, Math.max(0, score));

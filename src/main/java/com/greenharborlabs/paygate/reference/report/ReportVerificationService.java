@@ -70,6 +70,9 @@ public class ReportVerificationService {
     canonicalPayload.put("domain", report.get("domain"));
     canonicalPayload.put("checkedAt", report.get("checkedAt"));
     canonicalPayload.put("checks", report.get("checks"));
+    if (report.containsKey("risk")) {
+      canonicalPayload.put("risk", report.get("risk"));
+    }
     canonicalPayload.put("verdict", report.get("verdict"));
     return canonicalPayload;
   }

@@ -120,16 +120,24 @@ class TrustReportServiceTest {
                 Set.of(TrustCheck.HTTP, TrustCheck.SECURITY_HEADERS, TrustCheck.CONTENT, TrustCheck.RISK)));
     Map<String, Object> checks = (Map<String, Object>) report.get("checks");
     Map<String, Object> risk = (Map<String, Object>) checks.get("risk");
+    Map<String, Object> topLevelRisk = (Map<String, Object>) report.get("risk");
     List<Map<String, Object>> explanations = (List<Map<String, Object>>) risk.get("explanations");
     List<Map<String, Object>> notEvaluated = (List<Map<String, Object>>) risk.get("notEvaluated");
 
+    assertThat(topLevelRisk).isEqualTo(risk);
     assertThat(risk).containsKeys("score", "level", "explanations", "notEvaluated");
     assertThat(risk).doesNotContainEntry("status", "not_evaluated");
     assertThat((Integer) risk.get("score")).isGreaterThan(0);
     assertThat(explanations.stream().map(explanation -> String.valueOf(explanation.get("path"))).toList())
         .contains("checks.security_headers.findings.hsts.state", "checks.content.login.detected");
     assertThat(notEvaluated.stream().map(entry -> String.valueOf(entry.get("path"))).toList())
-        .contains("checks.tls", "checks.redirects", "checks.robots");
+        .contains(
+            "checks.tls",
+            "checks.redirects",
+            "checks.robots",
+            "providers.phishing_malware",
+            "providers.reputation",
+            "providers.domain_registration");
   }
 
   private TrustReportService service(FakeSafeHttpClient http, AddressForDomain addressForDomain) {

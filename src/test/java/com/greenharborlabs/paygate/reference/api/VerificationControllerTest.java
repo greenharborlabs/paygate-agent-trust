@@ -145,6 +145,28 @@ class VerificationControllerTest {
 
   @Test
   @SuppressWarnings("unchecked")
+  void verifyEndpointFailsWhenTopLevelRiskIsTampered() throws Exception {
+    Map<String, Object> report =
+        trustReportService.createReport(
+            new TrustReportRequest(
+                "example.com",
+                "example.com",
+                Set.of(TrustCheck.DNS, TrustCheck.RISK)));
+    assertThat(report).containsKey("risk");
+
+    Map<String, Object> tamperedReport = mutableReport(report);
+    Map<String, Object> tamperedRisk = new LinkedHashMap<>((Map<String, Object>) report.get("risk"));
+    tamperedRisk.put("score", 99);
+    tamperedReport.put("risk", tamperedRisk);
+
+    assertThat(post("/api/v1/trust/verify", tamperedReport))
+        .containsEntry("valid", false)
+        .containsEntry("signatureValid", false)
+        .containsEntry("digestMatches", false);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void verifyEndpointReturnsInvalidForUnknownKid() throws Exception {
     Map<String, Object> report =
         trustReportService.createReport(new TrustReportRequest("example.com", "example.com", Set.of(TrustCheck.DNS)));

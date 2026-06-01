@@ -52,13 +52,19 @@ class RiskScoringServiceTest {
             "checks.redirects",
             "checks.robots",
             "checks.security_headers",
-            "checks.content");
+            "checks.content",
+            "providers.phishing_malware",
+            "providers.reputation",
+            "providers.domain_registration");
     assertThat(notEvaluated)
         .anySatisfy(
             entry ->
                 assertThat(entry)
                     .containsEntry("path", "checks.tls")
                     .containsEntry("reason", "deferred_to_later_wave"));
+    assertThat(notEvaluated)
+        .filteredOn(entry -> String.valueOf(entry.get("path")).startsWith("providers."))
+        .allSatisfy(entry -> assertThat(entry).containsEntry("reason", "deferred_provider_not_configured"));
   }
 
   private Map<String, Object> lowRiskChecks() {

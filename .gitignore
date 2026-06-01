@@ -12,6 +12,7 @@ out/
 .env
 .env.*
 *.pem
+report.json
 
 # OS files
 .DS_Store
