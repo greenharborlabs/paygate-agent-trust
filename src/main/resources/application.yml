@@ -2,6 +2,9 @@ spring:
   application:
     name: paygate-reference-service
 
+server:
+  forward-headers-strategy: framework
+
 paygate:
   enabled: ${PAYGATE_ENABLED:true}
   backend: ${PAYGATE_BACKEND:lnbits}
@@ -36,3 +39,11 @@ reference:
   report-signing-private-key: ${REPORT_SIGNING_PRIVATE_KEY:}
   report-signing-public-key: ${REPORT_SIGNING_PUBLIC_KEY:}
   report-signing-key-id: ${REPORT_SIGNING_KEY_ID:2026-05-prod}
+  rate-limit:
+    enabled: ${REFERENCE_RATE_LIMIT_ENABLED:true}
+    catalog-per-minute: ${REFERENCE_RATE_LIMIT_CATALOG_PER_MINUTE:120}
+    keys-per-minute: ${REFERENCE_RATE_LIMIT_KEYS_PER_MINUTE:120}
+    quote-per-minute: ${REFERENCE_RATE_LIMIT_QUOTE_PER_MINUTE:60}
+    verify-per-minute: ${REFERENCE_RATE_LIMIT_VERIFY_PER_MINUTE:30}
+    report-per-minute: ${REFERENCE_RATE_LIMIT_REPORT_PER_MINUTE:10}
+    bucket-ttl-minutes: ${REFERENCE_RATE_LIMIT_BUCKET_TTL_MINUTES:30}

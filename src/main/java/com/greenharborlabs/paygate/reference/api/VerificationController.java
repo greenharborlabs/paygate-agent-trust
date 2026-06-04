@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
@@ -26,10 +27,22 @@ public class VerificationController {
       summary = "Get verification keys",
       description = "Returns the active Ed25519 public key in a JWKS-like shape for independent report verification.",
       responses =
-          @ApiResponse(
-              responseCode = "200",
-              description = "Verification keys.",
-              content = @Content(schema = @Schema(implementation = OpenApiSchemas.VerificationKeysResponse.class))))
+          {
+            @ApiResponse(
+                responseCode = "200",
+                description = "Verification keys.",
+                content = @Content(schema = @Schema(implementation = OpenApiSchemas.VerificationKeysResponse.class))),
+            @ApiResponse(
+                responseCode = "429",
+                description = "Rate limit exceeded.",
+                headers = {
+                  @Header(name = "Retry-After", description = "Seconds to wait before retrying."),
+                  @Header(name = "RateLimit-Limit", description = "Request limit for this route and client."),
+                  @Header(name = "RateLimit-Remaining", description = "Remaining requests in the current bucket."),
+                  @Header(name = "RateLimit-Reset", description = "Seconds until another request is available.")
+                },
+                content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class)))
+          })
   @GetMapping("/api/v1/verification/keys")
   public Map<String, Object> keys() {
     return verificationService.keys();
@@ -67,6 +80,16 @@ public class VerificationController {
         @ApiResponse(
             responseCode = "400",
             description = "Malformed report or signature.",
+            content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class))),
+        @ApiResponse(
+            responseCode = "429",
+            description = "Rate limit exceeded.",
+            headers = {
+              @Header(name = "Retry-After", description = "Seconds to wait before retrying."),
+              @Header(name = "RateLimit-Limit", description = "Request limit for this route and client."),
+              @Header(name = "RateLimit-Remaining", description = "Remaining requests in the current bucket."),
+              @Header(name = "RateLimit-Reset", description = "Seconds until another request is available.")
+            },
             content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class))),
         @ApiResponse(
             responseCode = "503",

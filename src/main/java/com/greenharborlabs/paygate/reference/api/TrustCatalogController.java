@@ -2,6 +2,7 @@ package com.greenharborlabs.paygate.reference.api;
 
 import com.greenharborlabs.paygate.reference.config.PaygateReferenceProperties;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,10 +38,22 @@ public class TrustCatalogController {
       summary = "Get service catalog",
       description = "Returns supported trust checks, default check set, pricing, verification URLs, and report signing key metadata.",
       responses =
-          @ApiResponse(
-              responseCode = "200",
-              description = "Catalog metadata.",
-              content = @Content(schema = @Schema(implementation = OpenApiSchemas.CatalogResponse.class))))
+          {
+            @ApiResponse(
+                responseCode = "200",
+                description = "Catalog metadata.",
+                content = @Content(schema = @Schema(implementation = OpenApiSchemas.CatalogResponse.class))),
+            @ApiResponse(
+                responseCode = "429",
+                description = "Rate limit exceeded.",
+                headers = {
+                  @Header(name = "Retry-After", description = "Seconds to wait before retrying."),
+                  @Header(name = "RateLimit-Limit", description = "Request limit for this route and client."),
+                  @Header(name = "RateLimit-Remaining", description = "Remaining requests in the current bucket."),
+                  @Header(name = "RateLimit-Reset", description = "Seconds until another request is available.")
+                },
+                content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class)))
+          })
   @GetMapping("/api/v1/catalog")
   public Map<String, Object> catalog() {
     return Map.of(

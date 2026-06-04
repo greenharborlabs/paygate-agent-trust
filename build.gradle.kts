@@ -26,6 +26,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("com.bucket4j:bucket4j_jdk17-core:8.19.0")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.apache.httpcomponents.client5:httpclient5")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
