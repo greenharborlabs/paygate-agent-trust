@@ -48,6 +48,28 @@ export BASE_URL="https://<app>.fly.dev"
 
 The `domain` query parameter must be a bare domain such as `example.com`. Do not send a URL, path, raw IP address, or protocol prefix. The `checks` query parameter is optional. When omitted or blank, the service runs the comprehensive default set: `dns`, `tls`, `http`, `redirects`, `robots`, `security_headers`, `content`, and `risk`. Explicit subsets still work, so `checks=dns` remains DNS-only.
 
+## OpenAPI And Swagger UI
+
+The deployed app exposes its generated OpenAPI document and Swagger UI directly:
+
+```bash
+curl -s "$BASE_URL/v3/api-docs"
+curl -s "$BASE_URL/v3/api-docs.yaml"
+open "$BASE_URL/swagger-ui.html"
+```
+
+For local development, start the service and open the same paths on localhost:
+
+```bash
+source scripts/local-dev-env.sh
+./gradlew bootRun
+
+curl -s http://localhost:8080/v3/api-docs.yaml
+open http://localhost:8080/swagger-ui.html
+```
+
+SwaggerHub/API Hub is not required for v1. The in-app Swagger UI is free to run with the service and keeps the published docs tied to the deployed API version. Revisit SwaggerHub/API Hub if the project needs hosted API portals, private team collaboration, governance workflows, or external version lifecycle management.
+
 ## API Walkthrough
 
 Start the app first. The simplest local mode disables real payment checks:

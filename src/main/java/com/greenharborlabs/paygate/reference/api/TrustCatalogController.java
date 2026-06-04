@@ -1,12 +1,18 @@
 package com.greenharborlabs.paygate.reference.api;
 
 import com.greenharborlabs.paygate.reference.config.PaygateReferenceProperties;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Tag(name = "Catalog", description = "Service health, capability discovery, pricing, and verification metadata.")
 public class TrustCatalogController {
   private final PaygateReferenceProperties properties;
 
@@ -14,11 +20,27 @@ public class TrustCatalogController {
     this.properties = properties;
   }
 
+  @Operation(
+      summary = "Health check",
+      description = "Returns a lightweight status response for load balancers and uptime checks.",
+      responses =
+          @ApiResponse(
+              responseCode = "200",
+              description = "Service is healthy.",
+              content = @Content(schema = @Schema(implementation = OpenApiSchemas.HealthResponse.class))))
   @GetMapping("/healthz")
   public Map<String, String> healthz() {
     return Map.of("status", "ok");
   }
 
+  @Operation(
+      summary = "Get service catalog",
+      description = "Returns supported trust checks, default check set, pricing, verification URLs, and report signing key metadata.",
+      responses =
+          @ApiResponse(
+              responseCode = "200",
+              description = "Catalog metadata.",
+              content = @Content(schema = @Schema(implementation = OpenApiSchemas.CatalogResponse.class))))
   @GetMapping("/api/v1/catalog")
   public Map<String, Object> catalog() {
     return Map.of(
