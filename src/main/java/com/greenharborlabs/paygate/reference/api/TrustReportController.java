@@ -62,6 +62,16 @@ public class TrustReportController {
         @ApiResponse(
             responseCode = "400",
             description = "Invalid domain or unsupported check.",
+            content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class))),
+        @ApiResponse(
+            responseCode = "429",
+            description = "Rate limit exceeded.",
+            headers = {
+              @Header(name = "Retry-After", description = "Seconds to wait before retrying."),
+              @Header(name = "RateLimit-Limit", description = "Request limit for this route and client."),
+              @Header(name = "RateLimit-Remaining", description = "Remaining requests in the current bucket."),
+              @Header(name = "RateLimit-Reset", description = "Seconds until another request is available.")
+            },
             content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class)))
       })
   @GetMapping("/api/v1/trust/quote")
@@ -117,6 +127,16 @@ public class TrustReportController {
         @ApiResponse(
             responseCode = "400",
             description = "Invalid domain or unsupported check.",
+            content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class))),
+        @ApiResponse(
+            responseCode = "429",
+            description = "Rate limit exceeded.",
+            headers = {
+              @Header(name = "Retry-After", description = "Seconds to wait before retrying."),
+              @Header(name = "RateLimit-Limit", description = "Request limit for this route and client."),
+              @Header(name = "RateLimit-Remaining", description = "Remaining requests in the current bucket."),
+              @Header(name = "RateLimit-Reset", description = "Seconds until another request is available.")
+            },
             content = @Content(schema = @Schema(implementation = OpenApiSchemas.ApiProblemResponse.class))),
         @ApiResponse(
             responseCode = "402",

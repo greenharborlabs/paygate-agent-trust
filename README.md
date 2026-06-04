@@ -48,6 +48,8 @@ export BASE_URL="https://<app>.fly.dev"
 
 The `domain` query parameter must be a bare domain such as `example.com`. Do not send a URL, path, raw IP address, or protocol prefix. The `checks` query parameter is optional. When omitted or blank, the service runs the comprehensive default set: `dns`, `tls`, `http`, `redirects`, `robots`, `security_headers`, `content`, and `risk`. Explicit subsets still work, so `checks=dns` remains DNS-only.
 
+Public `/api/**` routes are rate limited per client IP. When a client exceeds its route limit, the service returns `429 Too Many Requests` with `Retry-After`, `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` headers. `/healthz` is intentionally not rate limited so platform health checks keep working.
+
 ## OpenAPI And Swagger UI
 
 The deployed app exposes its generated OpenAPI document and Swagger UI directly:
@@ -446,6 +448,16 @@ curl -s -X POST "$PAYGATE_LNBITS_URL/api/v1/payments" \
   -d '{"out": false, "amount": 10, "memo": "paygate local test"}'
 ```
 
+Production guardrails before enabling LNbits:
+
+- Use a dedicated LNbits wallet for this service, not a shared admin wallet.
+- Store the LNbits API key only as a deploy secret. Do not commit it, paste it into logs, or include it in screenshots.
+- Generate a fresh `PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET` with at least 32 random bytes and keep it stable across deploys.
+- Generate production Ed25519 report signing keys separately from local development keys.
+- Record `REPORT_SIGNING_KEY_ID` as an operational identifier, for example `2026-06-prod`, and only change it during intentional signing key rotation.
+- Keep `PAYGATE_ENABLED=false` for local no-payment smoke tests; set it to `true` only for LNbits-backed local runs and production.
+- Leave rate limiting enabled for public deploys. The in-app limiter is per-machine, so use one Fly machine for strict global limits or add Redis/edge limits before scaling horizontally.
+
 Example LNbits-backed local run:
 
 ```bash
@@ -475,6 +487,15 @@ Optional service tuning:
 | `REFERENCE_MAX_HEADERS_COUNT` | `32` | Maximum stored response header count. |
 | `REFERENCE_CACHE_TTL_MINUTES` | `15` | Report cache TTL. |
 | `REFERENCE_MAX_CONCURRENT_CHECKS` | `16` | Concurrency limit setting. |
+| `REFERENCE_RATE_LIMIT_ENABLED` | `true` | Enables in-app public API rate limiting. |
+| `REFERENCE_RATE_LIMIT_CATALOG_PER_MINUTE` | `120` | Per-client limit for `/api/v1/catalog`. |
+| `REFERENCE_RATE_LIMIT_KEYS_PER_MINUTE` | `120` | Per-client limit for `/api/v1/verification/keys`. |
+| `REFERENCE_RATE_LIMIT_QUOTE_PER_MINUTE` | `60` | Per-client limit for `/api/v1/trust/quote` and unknown `/api/**` routes. |
+| `REFERENCE_RATE_LIMIT_VERIFY_PER_MINUTE` | `30` | Per-client limit for `/api/v1/trust/verify`. |
+| `REFERENCE_RATE_LIMIT_REPORT_PER_MINUTE` | `10` | Per-client limit for `/api/v1/trust/report`. |
+| `REFERENCE_RATE_LIMIT_BUCKET_TTL_MINUTES` | `30` | Idle bucket eviction window for per-client limiter state. |
+
+For a live public API, also consider adding structured request logging, Micrometer counters for rate-limited requests and report generation latency, an explicit CORS policy, a separate concurrency guard around paid report generation, and API-key or signed-client identity for higher-volume customers. The current limiter is in-memory and per-machine; use Redis-backed or edge rate limiting if the Fly deployment scales to multiple machines.
 
 Generate signing keys:
 
@@ -498,14 +519,10 @@ source scripts/local-dev-env.sh
 Then test the app:
 
 ```bash
-curl -s http://localhost:8080/healthz
-curl -s "http://localhost:8080/api/v1/catalog"
-curl -s "http://localhost:8080/api/v1/verification/keys"
-curl -s "http://localhost:8080/api/v1/trust/quote?domain=example.com"
-curl -i "http://localhost:8080/api/v1/trust/report?domain=example.com&checks=dns"
+scripts/smoke-local.sh
 ```
 
-Because `scripts/local-dev-env.sh` sets `PAYGATE_ENABLED=false`, the report request should return `200 OK` without a payment.
+The smoke script calls health, catalog, verification keys, quote, report generation, report verification, and OpenAPI endpoints. Because `scripts/local-dev-env.sh` sets `PAYGATE_ENABLED=false`, the report request should return `200 OK` without a payment.
 
 To test the Paygate payment flow locally without LNbits, use Paygate test mode:
 
@@ -616,6 +633,19 @@ fly secrets set \
   REPORT_SIGNING_PUBLIC_KEY=... \
   REPORT_SIGNING_KEY_ID=2026-05-prod
 fly deploy
+```
+
+Before `fly deploy`, verify the exact secret names are present:
+
+```bash
+fly secrets list
+```
+
+After deploy, check that the public catalog exposes the expected signing key id and public key:
+
+```bash
+curl -s "https://<app>.fly.dev/api/v1/catalog"
+curl -s "https://<app>.fly.dev/api/v1/verification/keys"
 ```
 
 ## Smoke Flow
