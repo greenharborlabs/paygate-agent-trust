@@ -28,6 +28,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.apache.httpcomponents.client5:httpclient5")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
     implementation("com.greenharborlabs:paygate-spring-boot-starter:$paygateVersion")
     implementation("com.greenharborlabs:paygate-lightning-lnbits:$paygateVersion")
 
