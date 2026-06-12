@@ -72,6 +72,7 @@ class PaygatePaymentFlowIntegrationTest {
       assertThat(wwwAuthHeaders).anyMatch(h -> h.startsWith("Payment"));
 
       Map<String, Object> challengeBody = MAPPER.readValue(challengeRsp.body(), Map.class);
+      assertThat(challengeBody).containsEntry("amount_sats", 10).containsEntry("amountSats", 10);
       String preimageHex = (String) challengeBody.get("test_preimage");
       Map<String, Object> protocols = (Map<String, Object>) challengeBody.get("protocols");
       Map<String, Object> paymentChallenge = (Map<String, Object>) protocols.get("Payment");

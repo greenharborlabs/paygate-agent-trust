@@ -1,6 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
+if [ -f ".env" ]; then
+  set -a
+  . ./.env
+  set +a
+fi
+
 KEY_FILE="${REPORT_SIGNING_KEY_FILE:-report-signing-private.pem}"
 
 if ! command -v openssl >/dev/null 2>&1; then

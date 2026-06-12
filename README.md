@@ -295,7 +295,86 @@ curl -i --get "$BASE_URL/api/v1/trust/report" \
   --data-urlencode "checks=dns"
 ```
 
-Expected result: `402 Payment Required` with `WWW-Authenticate` challenges. Pay the invoice using an L402 or MPP-capable client, then retry the same URL with the returned authorization credential:
+Expected result: `402 Payment Required` with `WWW-Authenticate` challenges. For manual inspection, this proves the service can create a real LNbits invoice. For a complete paid retry, use the programmable payer-wallet flow below.
+
+### 9. Run A Real-Sats Programmable Payer Test
+
+Use this flow to test the same thing an agent/client needs to do: receive `402`, pay the invoice programmatically, extract the payment preimage, build `Authorization: Payment ...`, and retry the request.
+
+Create two LNbits wallets:
+
+- Payee wallet: used by this API through `PAYGATE_LNBITS_API_KEY`; it receives report payments.
+- Payer wallet: used by the client/agent test; it sends sats and must use an LNbits admin key.
+
+Fund the payer wallet with a small amount. For example, in LNbits create a receive invoice for the payer wallet, then pay that invoice from Muun. Start with a small amount such as 100-500 sats.
+
+Keep the app running with real LNbits enabled, then in another shell set the payer wallet credentials:
+
+```bash
+export PAYGATE_BASE_URL="http://localhost:8080"
+export PAYER_LNBITS_URL="https://<lnbits-instance>"
+export PAYER_LNBITS_ADMIN_KEY="<payer-wallet-admin-key>"
+```
+
+Confirm the payer wallet has funds:
+
+```bash
+curl -s "$PAYER_LNBITS_URL/api/v1/wallet" \
+  -H "X-Api-Key: $PAYER_LNBITS_ADMIN_KEY"
+```
+
+Run the real-sats paid request:
+
+```bash
+scripts/paygate-lnbits-real-sats-test.sh example.com dns
+```
+
+The helper does five things:
+
+1. Calls `/api/v1/trust/report` and expects `402 Payment Required`.
+2. Extracts the MPP Lightning invoice from the challenge body.
+3. Pays that invoice from the payer LNbits wallet using `POST /api/v1/payments`.
+4. Polls the payer wallet for the payment preimage.
+5. Builds `Authorization: Payment ...`, retries the API request, and prints the `200 OK` report.
+
+The payer wallet must expose the payment preimage after sending the payment. LNbits does this through the payment lookup response. Phone wallets such as Muun are useful for funding the payer wallet, but they are not the right tool for the programmable retry because they usually do not expose an API for the client to retrieve the preimage.
+
+If the LNbits payer wallet pays successfully but does not expose a preimage, use an LND payer node such as Voltage instead. LNbits can still be the payee wallet that receives payments; LND only replaces the programmable client/agent wallet that pays invoices.
+
+Add the Voltage LND payer values to `.env`:
+
+```bash
+PAYER_LND_REST_URL="https://<node-name>.m.voltageapp.io:8080"
+PAYER_LND_MACAROON_HEX="<lnd-macaroon-hex>"
+```
+
+Verify LND API access:
+
+```bash
+source scripts/local-dev-env.sh
+
+curl -s "$PAYER_LND_REST_URL/v1/getinfo" \
+  -H "Grpc-Metadata-macaroon: $PAYER_LND_MACAROON_HEX"
+```
+
+Check outbound Lightning liquidity:
+
+```bash
+curl -s "$PAYER_LND_REST_URL/v1/balance/channels" \
+  -H "Grpc-Metadata-macaroon: $PAYER_LND_MACAROON_HEX"
+```
+
+The LND node needs enough outbound channel balance to pay the report price plus routing fees. A DNS-only report costs 10 sats, but opening/funding channels requires more than that because it involves on-chain funds and channel liquidity.
+
+Run the LND-backed real-sats paid request:
+
+```bash
+scripts/paygate-lnd-real-sats-test.sh example.com dns
+```
+
+The LND helper follows the same flow as the LNbits helper, but pays the extracted invoice through LND and uses LND's returned `payment_preimage` to build `Authorization: Payment ...`.
+
+To retry manually with an externally produced credential:
 
 ```bash
 curl -i --get "$BASE_URL/api/v1/trust/report" \
@@ -474,6 +553,15 @@ export PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET="$(openssl rand -base64 32
 
 With `PAYGATE_ENABLED=true`, `GET /api/v1/trust/report` returns `402 Payment Required` until the client pays a challenge and retries with a valid `Authorization` header.
 
+For repeated local testing, put these values in the ignored `.env` file instead of exporting them every time. `scripts/local-dev-env.sh` automatically loads `.env` before generating local report signing keys:
+
+```bash
+source scripts/local-dev-env.sh
+./gradlew bootRun
+```
+
+The repo includes `.env.example` with the expected variable names. Keep real LNbits keys only in `.env` or deploy secrets.
+
 Optional service tuning:
 
 | Environment variable | Default | Purpose |
@@ -593,7 +681,16 @@ curl -i --get "http://localhost:8080/api/v1/trust/report" \
 
 The retry should return `200 OK` with a `Payment-Receipt` header.
 
-To test against real LNbits locally, use the LNbits-backed env vars from the configuration section and leave `PAYGATE_TEST_MODE` unset. The first report request should return `402 Payment Required` and create a real LNbits invoice. A full paid retry requires a client that can pay the invoice and send back a valid `L402` or `Payment` authorization credential.
+To test against real LNbits locally, use the LNbits-backed env vars from the configuration section and leave `PAYGATE_TEST_MODE` unset. The first report request should return `402 Payment Required` and create a real LNbits invoice. For a complete real-sats retry, fund a separate payer LNbits wallet and run:
+
+```bash
+export PAYGATE_BASE_URL="http://localhost:8080"
+export PAYER_LNBITS_URL="https://<lnbits-instance>"
+export PAYER_LNBITS_ADMIN_KEY="<payer-wallet-admin-key>"
+scripts/paygate-lnbits-real-sats-test.sh example.com dns
+```
+
+The payer wallet must have enough sats for the requested report price and must expose the payment preimage after sending the payment.
 
 Run tests:
 

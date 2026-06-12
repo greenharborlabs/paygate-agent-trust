@@ -15,6 +15,10 @@ paygate:
   lnbits:
     url: ${PAYGATE_LNBITS_URL:}
     api-key: ${PAYGATE_LNBITS_API_KEY:}
+    request-timeout-seconds: ${PAYGATE_LNBITS_REQUEST_TIMEOUT_SECONDS:20}
+    connect-timeout-seconds: ${PAYGATE_LNBITS_CONNECT_TIMEOUT_SECONDS:10}
+  lightning:
+    timeout-seconds: ${PAYGATE_LIGHTNING_TIMEOUT_SECONDS:20}
 
 management:
   endpoints:
