@@ -19,7 +19,7 @@ repositories {
     maven(url = "https://central.sonatype.com/repository/maven-snapshots/")
 }
 
-val paygateVersion = "0.1.3"
+val paygateVersion = "0.1.4"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
