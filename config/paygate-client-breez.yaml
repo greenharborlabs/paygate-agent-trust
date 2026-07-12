@@ -1,0 +1,20 @@
+payer:
+  backend: breez
+policy:
+  max_request_sats: 50
+  max_fee_sats: 10
+  daily_budget_sats: 500
+  allowed_hosts:
+    - paygate-agent-trust.fly.dev:443
+    - localhost:8080
+  allowed_services:
+    - paygate-reference-service
+protocol:
+  preferred: Payment
+  allow_l402: true
+breez:
+  api_key_env: BREEZ_API_KEY
+  mnemonic_env: BREEZ_MNEMONIC
+  network: mainnet
+  storage_dir: ~/.local/share/paygate-client/breez
+  completion_timeout_secs: 30

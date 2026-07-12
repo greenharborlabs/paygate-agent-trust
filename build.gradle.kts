@@ -5,7 +5,6 @@ plugins {
 }
 
 group = "com.greenharborlabs"
-version = "0.1.0-SNAPSHOT"
 
 java {
     toolchain {
@@ -43,4 +42,8 @@ tasks.withType<Test> {
 
 tasks.withType<JavaCompile> {
     options.compilerArgs.add("-Xlint:deprecation")
+}
+
+tasks.bootJar {
+    archiveFileName.set("app.jar")
 }

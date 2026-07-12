@@ -1,0 +1,44 @@
+name: Finalize production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Verified deployed tag (vX.Y.Z)
+        required: true
+      fly_release:
+        description: Fly release or immutable image identifier
+        required: true
+      paid_smoke_result:
+        description: Enter PASSED only after Breez payment, receipt, and report verification succeed
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    environment: production-paid-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - name: Verify release evidence
+        env:
+          TAG: ${{ inputs.tag }}
+          PAID_SMOKE_RESULT: ${{ inputs.paid_smoke_result }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/verify-release-tag.sh "$TAG"
+          test "$PAID_SMOKE_RESULT" = "PASSED"
+          ! gh release view "$TAG" >/dev/null 2>&1
+      - name: Create verified GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          FLY_RELEASE: ${{ inputs.fly_release }}
+        run: |
+          printf 'Git SHA: %s\nFly release/image: %s\nHealth and unauthenticated smoke: PASSED\nBreez paid smoke: PASSED\n' "$GITHUB_SHA" "$FLY_RELEASE" > release-metadata.txt
+          gh release create "$TAG" --verify-tag --generate-notes --notes-file release-metadata.txt
