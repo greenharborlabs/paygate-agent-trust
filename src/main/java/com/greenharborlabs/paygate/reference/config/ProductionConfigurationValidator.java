@@ -2,6 +2,7 @@ package com.greenharborlabs.paygate.reference.config;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -11,6 +12,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
@@ -46,7 +48,9 @@ public final class ProductionConfigurationValidator implements ApplicationRunner
     requireHttps("paygate.lnbits.url", errors);
 
     String keyId = reference.reportSigningKeyId();
-    if (isPlaceholder(keyId) || keyId.toLowerCase().contains("local") || keyId.toLowerCase().contains("test")) {
+    if (isPlaceholder(keyId)
+        || keyId.toLowerCase(Locale.ROOT).contains("local")
+        || keyId.toLowerCase(Locale.ROOT).contains("test")) {
       errors.add("reference.report-signing-key-id must be a stable non-local production identifier");
     }
     validateKeyPair(errors);
@@ -68,7 +72,7 @@ public final class ProductionConfigurationValidator implements ApplicationRunner
       verifier.initVerify(publicKey);
       verifier.update(KEY_PROBE);
       if (!verifier.verify(signer.sign())) errors.add("report signing public and private keys do not match");
-    } catch (Exception exception) {
+    } catch (IllegalArgumentException | GeneralSecurityException exception) {
       errors.add("report signing keys must be valid Base64 DER Ed25519 PKCS#8/X.509 keys");
     }
   }
@@ -107,7 +111,7 @@ public final class ProductionConfigurationValidator implements ApplicationRunner
 
   private boolean isPlaceholder(String value) {
     if (value == null || value.isBlank()) return true;
-    String normalized = value.trim().toLowerCase();
+    String normalized = value.trim().toLowerCase(Locale.ROOT);
     return normalized.contains("<") || normalized.contains("changeme") || normalized.contains("default") || normalized.contains("example");
   }
 }

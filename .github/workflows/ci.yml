@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
@@ -40,7 +42,17 @@ jobs:
         run: shellcheck scripts/*.sh
 
       - name: Scan repository for secrets
-        uses: gitleaks/gitleaks-action@v2
+        run: scripts/scan-secrets.sh
+
+      - name: Upload static-analysis reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-reports
+          path: |
+            build/reports/pmd/main.html
+            build/reports/spotbugs/main.html
+          if-no-files-found: warn
 
       - name: Scan dependencies and filesystem
         uses: aquasecurity/trivy-action@v0.31.0

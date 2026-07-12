@@ -90,13 +90,14 @@ public class TrustReportService {
       warnings.addAll(checkWarnings(redirects, "redirects"));
     }
     addRootResponseChecks(request, checks, warnings, rootResponse, addresses);
-    Map<String, Object> risk = addRiskCheck(request, checks);
+    addRiskCheck(request, checks);
+    Object selectedRisk = checks.get("risk");
     Map<String, Object> verdict = Map.of("status", warnings.isEmpty() ? "ok" : "warn", "warnings", warnings);
     Map<String, Object> signable = new LinkedHashMap<>();
     signable.put("domain", request.normalizedDomain());
     signable.put("checkedAt", Instant.now().toString());
     signable.put("checks", checks);
-    if (risk != null) signable.put("risk", risk);
+    if (selectedRisk instanceof Map<?, ?>) signable.put("risk", selectedRisk);
     signable.put("verdict", verdict);
     var sig = reportSigner.sign(signable);
 
@@ -107,7 +108,7 @@ public class TrustReportService {
     report.put("domain", request.normalizedDomain());
     report.put("checkedAt", signable.get("checkedAt"));
     report.put("checks", checks);
-    if (risk != null) report.put("risk", risk);
+    if (selectedRisk instanceof Map<?, ?>) report.put("risk", selectedRisk);
     report.put("verdict", verdict);
     report.put("cache", Map.of("hit", false, "ttlSeconds", 900));
     cache.put(cacheKey, report);
@@ -166,13 +167,11 @@ public class TrustReportService {
     }
   }
 
-  private Map<String, Object> addRiskCheck(TrustReportRequest request, Map<String, Object> checks) {
+  private void addRiskCheck(TrustReportRequest request, Map<String, Object> checks) {
     if (request.checks().contains(TrustCheck.RISK)) {
       Map<String, Object> risk = riskScoringService.score(checks);
       checks.put("risk", risk);
-      return risk;
     }
-    return null;
   }
 
   private Map<String, Object> fetchFailedCheck(ApiProblem problem) {

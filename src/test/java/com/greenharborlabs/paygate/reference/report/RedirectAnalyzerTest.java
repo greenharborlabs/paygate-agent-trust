@@ -86,6 +86,21 @@ class RedirectAnalyzerTest {
     assertThat((List<Map<String, Object>>) result.get("hops")).hasSize(5);
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  void representsMalformedRedirectLocationAsBoundedWarning() throws Exception {
+    FakeSafeHttpClient http = new FakeSafeHttpClient();
+    http.response("example.com", "/", 302, Map.of("Location", "https://[invalid"));
+    RedirectAnalyzer analyzer = new RedirectAnalyzer(dns("93.184.216.34"), http);
+
+    Map<String, Object> result =
+        analyzer.analyze("example.com", List.of(InetAddress.getByName("93.184.216.34")));
+
+    assertThat(result).containsEntry("status", "warn").containsEntry("terminalStatus", 302);
+    assertThat((List<String>) result.get("warnings")).containsExactly("redirect-malformed-location");
+    assertThat((List<Map<String, Object>>) result.get("hops")).singleElement();
+  }
+
   private DnsVettingService dns(String address) {
     return new DnsVettingService(new AddressClassifier(), domain -> new InetAddress[] {InetAddress.getByName(address)});
   }

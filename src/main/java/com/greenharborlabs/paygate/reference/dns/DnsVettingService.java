@@ -41,7 +41,7 @@ public class DnsVettingService {
       }
       return addresses;
     } catch (UnknownHostException ex) {
-      throw new ApiProblem("DNS_LOOKUP_FAILED", HttpStatus.UNPROCESSABLE_CONTENT, true, "DNS lookup failed.");
+      throw new ApiProblem("DNS_LOOKUP_FAILED", HttpStatus.UNPROCESSABLE_CONTENT, true, "DNS lookup failed.", ex);
     }
   }
 }

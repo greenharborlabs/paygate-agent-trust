@@ -44,15 +44,20 @@ class DnsVettingServiceTest {
 
   @Test
   void mapsLookupFailure() {
+    var lookupFailure = new UnknownHostException("boom");
     var service =
         new DnsVettingService(
             new AddressClassifier(),
             domain -> {
-              throw new UnknownHostException("boom");
+              throw lookupFailure;
             });
     assertThatThrownBy(() -> service.resolvePublic("missing.example"))
         .isInstanceOf(ApiProblem.class)
-        .satisfies(ex -> assertThat(((ApiProblem) ex).code()).isEqualTo("DNS_LOOKUP_FAILED"));
+        .satisfies(
+            ex -> {
+              assertThat(((ApiProblem) ex).code()).isEqualTo("DNS_LOOKUP_FAILED");
+              assertThat(ex.getCause()).isSameAs(lookupFailure);
+            });
   }
 
   @Test

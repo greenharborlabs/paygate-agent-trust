@@ -62,7 +62,7 @@ final class SecurityHeadersAnalyzer {
   private Long hstsMaxAge(String value) {
     for (String directive : value.split(";")) {
       String[] parts = directive.trim().split("=", 2);
-      if (parts.length == 2 && parts[0].equalsIgnoreCase("max-age")) {
+      if (parts.length == 2 && "max-age".equalsIgnoreCase(parts[0])) {
         try {
           return Long.parseLong(parts[1].trim());
         } catch (NumberFormatException ex) {

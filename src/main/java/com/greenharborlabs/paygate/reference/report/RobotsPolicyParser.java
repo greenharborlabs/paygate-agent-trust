@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 public class RobotsPolicyParser {
   private static final List<String> AI_AGENTS = List.of("GPTBot", "ChatGPT-User", "ClaudeBot", "Google-Extended", "PerplexityBot");
@@ -13,12 +14,12 @@ public class RobotsPolicyParser {
     List<Group> groups = new ArrayList<>();
     List<String> sitemaps = new ArrayList<>();
     List<String> warnings = new ArrayList<>();
-    Group current = null;
+    Optional<Group> current = Optional.empty();
 
     for (String rawLine : body.lines().toList()) {
       String line = stripComment(rawLine).trim();
       if (line.isEmpty()) {
-        current = null;
+        current = Optional.empty();
         continue;
       }
       int colon = line.indexOf(':');
@@ -30,27 +31,28 @@ public class RobotsPolicyParser {
       String value = line.substring(colon + 1).trim();
       switch (field) {
         case "user-agent" -> {
-          if (current == null || !current.rules.isEmpty()) {
-            current = new Group();
-            groups.add(current);
+          if (current.isEmpty() || !current.orElseThrow().rules.isEmpty()) {
+            Group group = new Group();
+            groups.add(group);
+            current = Optional.of(group);
           }
-          current.agents.add(value.toLowerCase(Locale.ROOT));
+          current.orElseThrow().agents.add(value.toLowerCase(Locale.ROOT));
         }
         case "allow", "disallow" -> {
-          if (current == null) {
+          if (current.isEmpty()) {
             warnings.add("robots-rule-without-agent");
           } else {
             if (hasUnbalancedSquareBracket(value)) {
               warnings.add("robots-malformed-rule-pattern");
             }
-            current.rules.add(new Rule(field.equals("allow"), value));
+            current.orElseThrow().rules.add(new Rule("allow".equals(field), value));
           }
         }
         case "crawl-delay" -> {
-          if (current == null) {
+          if (current.isEmpty()) {
             warnings.add("robots-crawl-delay-without-agent");
           } else {
-            current.crawlDelay = value;
+            current.orElseThrow().crawlDelay = value;
           }
         }
         case "sitemap" -> sitemaps.add(value);
@@ -132,14 +134,16 @@ public class RobotsPolicyParser {
         return true;
       }
       if (globIndex < glob.length() && glob.charAt(globIndex) == '*') {
-        starIndex = globIndex++;
+        starIndex = globIndex;
+        globIndex++;
         starPathIndex = pathIndex;
       } else if (globIndex < glob.length() && glob.charAt(globIndex) == path.charAt(pathIndex)) {
         globIndex++;
         pathIndex++;
       } else if (starIndex >= 0) {
         globIndex = starIndex + 1;
-        pathIndex = ++starPathIndex;
+        starPathIndex++;
+        pathIndex = starPathIndex;
       } else {
         return false;
       }

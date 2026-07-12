@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -69,6 +70,6 @@ public class PaygateTestModeChallengeBodyFilter extends OncePerRequestFilter {
     return response.getStatus() == HttpStatus.PAYMENT_REQUIRED.value()
         && body.length > 0
         && contentType != null
-        && contentType.toLowerCase().contains("application/json");
+        && contentType.toLowerCase(Locale.ROOT).contains("application/json");
   }
 }

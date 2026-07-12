@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.util.Base64;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -51,6 +52,21 @@ class ProductionConfigurationValidatorTest {
     PaygateReferenceProperties malformed = properties("not-base64", "also-not-base64", "2026-07-prod");
     assertThatThrownBy(() -> new ProductionConfigurationValidator(environment, malformed).validate())
         .hasMessageContaining("valid Base64 DER Ed25519");
+  }
+
+  @Test
+  void rejectsLocalKeyIdUnderTurkishDefaultLocale() throws Exception {
+    Locale original = Locale.getDefault();
+    try {
+      Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+      KeyPair pair = keyPair();
+      var validator =
+          new ProductionConfigurationValidator(productionEnvironment(), properties(pair, pair, "LOCAL"));
+
+      assertThatThrownBy(validator::validate).hasMessageContaining("non-local production identifier");
+    } finally {
+      Locale.setDefault(original);
+    }
   }
 
   private Fixture fixture() throws Exception {

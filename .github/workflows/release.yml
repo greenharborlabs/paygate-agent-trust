@@ -5,7 +5,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: production
@@ -32,7 +32,16 @@ jobs:
       - name: Check shell scripts
         run: shellcheck scripts/*.sh
       - name: Scan repository for secrets
-        uses: gitleaks/gitleaks-action@v2
+        run: scripts/scan-secrets.sh
+      - name: Upload static-analysis reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-reports-${{ github.ref_name }}
+          path: |
+            build/reports/pmd/main.html
+            build/reports/spotbugs/main.html
+          if-no-files-found: warn
       - name: Scan dependencies and filesystem
         uses: aquasecurity/trivy-action@v0.31.0
         with:
@@ -42,7 +51,8 @@ jobs:
           exit-code: "1"
       - name: Smoke production container
         run: scripts/container-smoke.sh
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # v1.6
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
       - name: Validate Fly configuration
         run: flyctl config validate
         env:

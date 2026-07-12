@@ -2,6 +2,7 @@ package com.greenharborlabs.paygate.reference.domain;
 
 import com.greenharborlabs.paygate.reference.api.ApiProblem;
 import java.net.IDN;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ public class DomainValidator {
     if (input == null || input.isBlank()) {
       throw new ApiProblem("INVALID_DOMAIN", HttpStatus.BAD_REQUEST, false, "Domain is required.");
     }
-    String trimmed = input.trim().toLowerCase();
+    String trimmed = input.trim().toLowerCase(Locale.ROOT);
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.contains("/")) {
       throw new ApiProblem("INVALID_DOMAIN", HttpStatus.BAD_REQUEST, false, "Only bare domains are supported.");
     }
@@ -23,9 +24,9 @@ public class DomainValidator {
       throw new ApiProblem("INVALID_DOMAIN", HttpStatus.BAD_REQUEST, false, "Raw IP addresses are not supported.");
     }
     try {
-      return IDN.toASCII(trimmed, IDN.USE_STD3_ASCII_RULES).toLowerCase();
+      return IDN.toASCII(trimmed, IDN.USE_STD3_ASCII_RULES).toLowerCase(Locale.ROOT);
     } catch (Exception ex) {
-      throw new ApiProblem("INVALID_DOMAIN", HttpStatus.BAD_REQUEST, false, "Malformed domain.");
+      throw new ApiProblem("INVALID_DOMAIN", HttpStatus.BAD_REQUEST, false, "Malformed domain.", ex);
     }
   }
 }

@@ -553,20 +553,23 @@ docker run --rm -p 8080:8080 \
 
 The included `fly.toml` deploys the Dockerfile, exposes port `8080`, and uses `/healthz` for health checks.
 
+Before provisioning, create an app-scoped Fly token with an expiry and store it as the protected
+`production` environment's `FLY_API_TOKEN`. Require approval for that environment and keep the
+release workflow's actions pinned to immutable commits. Enter secrets through a prompt or a
+secret manager (for example, `fly secrets import < <(secret-command)`); do not paste literal
+values into shell commands, history, source files, or CI logs.
+
 ```bash
 fly launch --copy-config --no-deploy
-fly secrets set \
-  SPRING_PROFILES_ACTIVE=prod \
-  PAYGATE_ENABLED=true \
-  PAYGATE_BACKEND=lnbits \
-  PAYGATE_LNBITS_URL="https://<lnbits-instance>" \
-  PAYGATE_LNBITS_API_KEY="<payee-wallet-api-key>" \
-  PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET="<random-secret-at-least-32-bytes>" \
-  REPORT_SIGNING_PRIVATE_KEY="<base64-der-private-key>" \
-  REPORT_SIGNING_PUBLIC_KEY="<base64-der-public-key>" \
-  REPORT_SIGNING_KEY_ID="2026-06-prod"
+# The approved secret provider must emit KEY=VALUE lines on standard output.
+approved-secret-provider-command | fly secrets import
 fly deploy --remote-only
 ```
+
+The secret-provider command must supply `SPRING_PROFILES_ACTIVE`, `PAYGATE_ENABLED`,
+`PAYGATE_BACKEND`, `PAYGATE_LNBITS_URL`, `PAYGATE_LNBITS_API_KEY`,
+`PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET`, `REPORT_SIGNING_PRIVATE_KEY`,
+`REPORT_SIGNING_PUBLIC_KEY`, and `REPORT_SIGNING_KEY_ID`.
 
 Before `fly deploy`, verify the exact secret names are present:
 
