@@ -43,7 +43,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
 
       - name: Scan dependencies and filesystem
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
           scan-type: fs
           scan-ref: .

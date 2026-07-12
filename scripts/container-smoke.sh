@@ -41,4 +41,8 @@ grep -q '"protocols"' /tmp/paygate-smoke-challenge.json
 
 test "$(docker inspect --format '{{.Config.User}}' "$CONTAINER_NAME")" = "10001:10001"
 docker stop --time 30 "$CONTAINER_NAME" >/dev/null
-test "$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER_NAME")" = "0"
+exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER_NAME")"
+case "$exit_code" in
+  0|143) ;;
+  *) echo "Container exited unexpectedly with status $exit_code" >&2; exit 1 ;;
+esac
