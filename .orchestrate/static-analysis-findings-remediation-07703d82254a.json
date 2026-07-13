@@ -1,0 +1,40 @@
+{
+  "plan_path": "plans/static-analysis-findings-remediation.md",
+  "plan_hash": "07703d82254a0942d5ac20323bf12dfada36691fa60b96ee44594fd9577b1771",
+  "start_commit": "314c6816dcf4074dacb4110f1cc461d0da1c4591",
+  "tasks": {
+    "W1-01": "completed",
+    "W1-02": "completed",
+    "W1-03": "completed",
+    "W2-01": "completed",
+    "W3-01": "completed"
+  },
+  "blocked_reasons": {},
+  "gates": {
+    "final_verification": "completed",
+    "specialist_review": "completed"
+  },
+  "touched_tests": [
+    "src/test/java/com/greenharborlabs/paygate/reference/api/ApiExceptionHandlerTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/config/ProductionConfigurationValidatorTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/dns/DnsVettingServiceTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/domain/DomainValidatorTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/http/TlsCertificateInspectorTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/report/RedirectAnalyzerTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/report/ReportSignerTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/report/TrustReportServiceTest.java"
+  ],
+  "contract_registry": [
+    {
+      "file": "src/main/java/com/greenharborlabs/paygate/reference/api/ApiProblem.java",
+      "name": "ApiProblem cause constructor",
+      "signature": "ApiProblem(String, HttpStatus, boolean, String, Throwable)"
+    }
+  ],
+  "agent_suite": {
+    "coder": "greenharbor-backend-coder-java",
+    "reviewer": "greenharbor-backend-reviewer-java",
+    "architect": "greenharbor-backend-planning-architect"
+  },
+  "test_cmd": "./gradlew test --tests \"<pattern>\" --no-daemon"
+}

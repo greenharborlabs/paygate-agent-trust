@@ -1,0 +1,18 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "lnd-macaroon"
+description = "LND macaroon in a known variable or gRPC metadata header"
+regex = '''(?i)(?:\b(?:LND|PAYGATE_LND|LIGHTNING_LND)_?(?:ADMIN_|INVOICE_|READONLY_|ROUTE_)?MACAROON\b\s*(?:=|:)\s*["']?|\bGrpc-Metadata-macaroon\b\s*:\s*["']?)([a-f0-9]{64,})'''
+secretGroup = 1
+keywords = ["macaroon", "grpc-metadata-macaroon"]
+
+[[allowlists]]
+description = "Published test-only signing and challenge fixtures"
+regexTarget = "secret"
+regexes = [
+  '''MC4CAQAwBQYDK2VwBCIEIKFgoMB34QYC1lTcyWsgFIJcqRY2cNcV2dMHbGGmPvhD''',
+  '''integration-test-secret-at-least-32-bytes-long''',
+  '''0123456789abcdef0123456789abcdef''',
+]

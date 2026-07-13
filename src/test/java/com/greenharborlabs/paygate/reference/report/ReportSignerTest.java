@@ -103,7 +103,11 @@ class ReportSignerTest {
     var signer = new ReportSigner(badProps, new ObjectMapper());
     assertThatThrownBy(() -> signer.sign(Map.of("domain", "example.com")))
         .isInstanceOf(ApiProblem.class)
-        .satisfies(ex -> assertThat(((ApiProblem) ex).code()).isEqualTo("REPORT_SIGNING_FAILED"));
+        .satisfies(
+            ex -> {
+              assertThat(((ApiProblem) ex).code()).isEqualTo("REPORT_SIGNING_FAILED");
+              assertThat(ex.getCause()).isInstanceOf(IllegalArgumentException.class);
+            });
   }
 
   private boolean verify(Map<String, Object> payload, String signatureBase64Url, String publicKeyBase64) throws Exception {

@@ -125,19 +125,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
   private record RouteLimit(String name, long limit) {
     private static RouteLimit fromPath(String path, RateLimitProperties properties) {
-      if (path.equals("/api/v1/catalog")) {
+      if ("/api/v1/catalog".equals(path)) {
         return new RouteLimit("catalog", properties.catalogPerMinute());
       }
-      if (path.equals("/api/v1/verification/keys")) {
+      if ("/api/v1/verification/keys".equals(path)) {
         return new RouteLimit("keys", properties.keysPerMinute());
       }
-      if (path.equals("/api/v1/trust/verify")) {
+      if ("/api/v1/trust/verify".equals(path)) {
         return new RouteLimit("verify", properties.verifyPerMinute());
       }
-      if (path.equals("/api/v1/trust/report")) {
+      if ("/api/v1/trust/report".equals(path)) {
         return new RouteLimit("report", properties.reportPerMinute());
       }
-      if (path.equals("/api/v1/trust/quote")) {
+      if ("/api/v1/trust/quote".equals(path)) {
         return new RouteLimit("quote", properties.quotePerMinute());
       }
       return new RouteLimit("api", properties.quotePerMinute());

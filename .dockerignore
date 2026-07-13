@@ -1,33 +1,19 @@
-# flyctl launch added from .gitignore
-# Gradle / Java build output
-**/.gradle
-**/build
-**/out
-**/*.class
-
-# IDE metadata
-**/.idea
-**/*.iml
-
-# Local environment and generated secrets
-**/.env
-**/.env.*
-**/*.pem
-**/report.json
-
-# OS files
-**/.DS_Store
+.git
+.github
+.gradle
+build
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+.idea
+.vscode
+*.iml
+.DS_Store
+__pycache__
+.pytest_cache
+.breez-*
 plans
-
-# flyctl launch added from .idea/.gitignore
-# Default ignored files
-.idea/shelf
-.idea/workspace.xml
-# Editor-based HTTP Client requests
-.idea/httpRequests
-# Ignored default folder with query files
-.idea/queries
-# Datasource local storage ignored files
-.idea/dataSources
-.idea/dataSources.local.xml
-fly.toml

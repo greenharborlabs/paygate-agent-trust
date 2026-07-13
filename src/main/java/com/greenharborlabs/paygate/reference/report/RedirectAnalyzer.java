@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.http.HttpMethod;
 
@@ -32,7 +33,7 @@ public class RedirectAnalyzer {
     URI current = URI.create("https://" + domain + "/");
     List<InetAddress> addresses = initialAddresses;
     int crossHostRedirects = 0;
-    Integer terminalStatus = null;
+    Optional<Integer> terminalStatus = Optional.empty();
 
     for (int hopIndex = 0; hopIndex < MAX_HOPS; hopIndex++) {
       String currentHost = current.getHost();
@@ -42,7 +43,7 @@ public class RedirectAnalyzer {
       }
       try {
         var response = safeHttpClient.fetch(currentHost, addresses, HttpMethod.GET, pathAndQuery(current));
-        terminalStatus = response.statusCode();
+        terminalStatus = Optional.of(response.statusCode());
         String location = response.headers().getOrDefault("Location", response.headers().get("location"));
         boolean redirect = response.statusCode() >= 300 && response.statusCode() < 400 && location != null && !location.isBlank();
         URI next = redirect ? resolveLocation(current, location, warnings) : null;
@@ -79,7 +80,7 @@ public class RedirectAnalyzer {
           blocked.put("reason", problem.code());
           blocked.put("hostChanged", hostChanged);
           hops.add(blocked);
-          terminalStatus = null;
+          terminalStatus = Optional.empty();
           break;
         }
         current = next;
@@ -102,7 +103,7 @@ public class RedirectAnalyzer {
     Map<String, Object> result = new LinkedHashMap<>();
     result.put("status", warnings.isEmpty() ? "ok" : "warn");
     result.put("hops", hops);
-    result.put("terminalStatus", terminalStatus);
+    result.put("terminalStatus", terminalStatus.orElse(null));
     result.put("warnings", warnings);
     return result;
   }

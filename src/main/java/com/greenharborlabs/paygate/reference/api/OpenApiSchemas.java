@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
 
+// OpenAPI discovers the nested schema records through annotations; this type is intentionally only a namespace.
+@SuppressWarnings("PMD.MissingStaticMethodInNonInstantiatableClass")
 public final class OpenApiSchemas {
   private OpenApiSchemas() {}
 

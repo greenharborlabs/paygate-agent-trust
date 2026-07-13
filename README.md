@@ -181,7 +181,7 @@ source scripts/local-dev-env.sh
 
 Use this when you want to test the same loop an agent/client needs to perform: receive `402`, pay the invoice programmatically, extract the payment preimage, build `Authorization: Payment ...`, and retry the request.
 
-Keep the app running in [local LNbits payee mode](#local-lnbits-payee-mode). Then choose one payer backend.
+Keep the app running in [local LNbits payee mode](#local-lnbits-payee-mode). LNbits remains the service-side payee; payer credentials stay client-side and must never be stored as Fly secrets.
 
 #### LNbits Payer Wallet
 
@@ -213,43 +213,19 @@ scripts/paygate-lnbits-real-sats-test.sh example.com dns
 
 The payer wallet must expose the payment preimage after sending the payment. LNbits normally does this through the payment lookup response.
 
-#### LND Payer Node
+#### Breez SDK Spark Payer
 
-Use this if the LNbits payer wallet pays successfully but does not expose a preimage. LNbits can still be the payee wallet; LND only replaces the programmable client/agent wallet that pays invoices.
+Install the pinned client with Breez support and use a funded mainnet wallet:
 
 ```bash
+python -m pip install "paygate-client[breez] @ git+https://github.com/greenharborlabs/paygate-client.git@684b6f556d0916643e2283ef66b8c21d776de6bd"
+export BREEZ_API_KEY="<breez-api-key>"
+export BREEZ_MNEMONIC="<breez-wallet-seed-words>"
 export PAYGATE_BASE_URL="http://localhost:8080"
-export PAYER_LND_REST_URL="https://<voltage-lnd-rest-endpoint>:8080"
-export PAYER_LND_MACAROON_HEX="<lnd-macaroon-hex>"
+scripts/paygate-breez-real-sats-test.sh example.com dns
 ```
 
-Optional for custom TLS:
-
-```bash
-export PAYER_LND_TLS_CERT_PATH="/absolute/path/to/tls.cert"
-```
-
-Verify LND API access:
-
-```bash
-curl -s "$PAYER_LND_REST_URL/v1/getinfo" \
-  -H "Grpc-Metadata-macaroon: $PAYER_LND_MACAROON_HEX"
-```
-
-Check outbound Lightning liquidity:
-
-```bash
-curl -s "$PAYER_LND_REST_URL/v1/balance/channels" \
-  -H "Grpc-Metadata-macaroon: $PAYER_LND_MACAROON_HEX"
-```
-
-Run the paid request:
-
-```bash
-scripts/paygate-lnd-real-sats-test.sh example.com dns
-```
-
-The LND node needs enough outbound channel balance to pay the report price plus routing fees. A DNS-only report costs 10 sats, but opening and funding channels requires more than that because it involves on-chain funds and channel liquidity.
+The policy caps reports at 50 sats and fees at 10 sats. The Breez backend forces BOLT11 settlement with `prefer_spark=false`, requires a preimage, and verifies `sha256(preimage) == payment_hash` before retrying. The helper also requires a receipt and verifies the signed report publicly.
 
 ## API Walkthrough
 
@@ -577,19 +553,23 @@ docker run --rm -p 8080:8080 \
 
 The included `fly.toml` deploys the Dockerfile, exposes port `8080`, and uses `/healthz` for health checks.
 
+Before provisioning, create an app-scoped Fly token with an expiry and store it as the protected
+`production` environment's `FLY_API_TOKEN`. Require approval for that environment and keep the
+release workflow's actions pinned to immutable commits. Enter secrets through a prompt or a
+secret manager (for example, `fly secrets import < <(secret-command)`); do not paste literal
+values into shell commands, history, source files, or CI logs.
+
 ```bash
 fly launch --copy-config --no-deploy
-fly secrets set \
-  PAYGATE_ENABLED=true \
-  PAYGATE_BACKEND=lnbits \
-  PAYGATE_LNBITS_URL="https://<lnbits-instance>" \
-  PAYGATE_LNBITS_API_KEY="<payee-wallet-api-key>" \
-  PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET="<random-secret-at-least-32-bytes>" \
-  REPORT_SIGNING_PRIVATE_KEY="<base64-der-private-key>" \
-  REPORT_SIGNING_PUBLIC_KEY="<base64-der-public-key>" \
-  REPORT_SIGNING_KEY_ID="2026-06-prod"
-fly deploy
+# The approved secret provider must emit KEY=VALUE lines on standard output.
+approved-secret-provider-command | fly secrets import
+fly deploy --remote-only
 ```
+
+The secret-provider command must supply `SPRING_PROFILES_ACTIVE`, `PAYGATE_ENABLED`,
+`PAYGATE_BACKEND`, `PAYGATE_LNBITS_URL`, `PAYGATE_LNBITS_API_KEY`,
+`PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET`, `REPORT_SIGNING_PRIVATE_KEY`,
+`REPORT_SIGNING_PUBLIC_KEY`, and `REPORT_SIGNING_KEY_ID`.
 
 Before `fly deploy`, verify the exact secret names are present:
 
@@ -613,7 +593,7 @@ curl -i "$BASE_URL/api/v1/trust/report?domain=example.com"
 curl -s "$BASE_URL/api/v1/trust/quote?domain=example.com"
 ```
 
-The report response should be `402 Payment Required` with `WWW-Authenticate` challenges for `L402` and `Payment`. After paying either challenge invoice, retry the report request with `Authorization` and expect `200 OK` plus a `Payment-Receipt` header for MPP.
+The report response should be `402 Payment Required` with `WWW-Authenticate` challenges for `L402` and `Payment`. Run the Breez helper from a separately controlled payer runner to verify the paid retry, receipt, and signed report. Production intentionally remains one Machine because rate limits and caches are process-local; distributed semantics are required before horizontal scaling. See `docs/PRODUCTION-RUNBOOK.md` and `docs/RELEASE-CHECKLIST.md`.
 
 ## Report Shape
 

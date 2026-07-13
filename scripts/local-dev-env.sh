@@ -3,6 +3,7 @@ set -eu
 
 if [ -f ".env" ]; then
   set -a
+  # shellcheck source=/dev/null
   . ./.env
   set +a
 fi
@@ -11,6 +12,7 @@ KEY_FILE="${REPORT_SIGNING_KEY_FILE:-report-signing-private.pem}"
 
 if ! command -v openssl >/dev/null 2>&1; then
   echo "openssl is required to generate local Ed25519 signing keys." >&2
+  # shellcheck disable=SC2317 # `return` exits when sourced; `exit` covers direct execution.
   return 1 2>/dev/null || exit 1
 fi
 

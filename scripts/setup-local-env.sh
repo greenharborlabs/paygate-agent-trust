@@ -4,7 +4,6 @@ set -euo pipefail
 ENV_PATH="${PAYGATE_AGENT_TRUST_ENV_PATH:-.env}"
 
 DEFAULT_PAYGATE_ENABLED="true"
-DEFAULT_PAYGATE_BACKEND="lnbits"
 DEFAULT_PAYGATE_BASE_URL="http://localhost:8080"
 DEFAULT_BASE_URL="http://localhost:8080"
 DEFAULT_REPORT_SIGNING_KEY_ID="local-dev"
@@ -68,23 +67,6 @@ normalize_lnbits_url() {
   printf '%s' "$url"
 }
 
-normalize_lnd_rest_url() {
-  local raw="$1"
-  local url="$raw"
-
-  if [ -z "$url" ]; then
-    printf ''
-    return
-  fi
-  if [[ "$url" != http://* && "$url" != https://* ]]; then
-    url="https://$url"
-  fi
-  if [[ "$url" != *:[0-9]* ]]; then
-    url="$url:8080"
-  fi
-  printf '%s' "$url"
-}
-
 shell_quote() {
   printf "'%s'" "${1//\'/\'\\\'\'}"
 }
@@ -119,31 +101,14 @@ require_non_negative_int() {
   fi
 }
 
-require_hex_if_present() {
-  local name="$1"
-  local value="$2"
-
-  if [ -z "$value" ]; then
-    return
-  fi
-  if ! [[ "$value" =~ ^[0-9a-fA-F]+$ ]]; then
-    printf 'Error: %s must be hex encoded.\n' "$name" >&2
-    exit 1
-  fi
-  if (( ${#value} % 2 != 0 )); then
-    printf 'Error: %s must have an even number of hex characters.\n' "$name" >&2
-    exit 1
-  fi
-}
-
 printf '\nPaygate Agent Trust local .env setup wizard\n'
 printf 'This writes %s for local LNbits-backed Paygate testing.\n\n' "$ENV_PATH"
 
 printf 'Checklist before continuing:\n'
 printf '  1. You have an LNbits payee wallet for this service.\n'
 printf '  2. You have the payee wallet API key that can create invoices and read payment status.\n'
-printf '  3. For real-sats client testing, your Voltage LND node has outbound liquidity.\n'
-printf '  4. You have the Voltage REST endpoint and macaroon hex if using scripts/paygate-lnd-real-sats-test.sh.\n\n'
+printf '  3. For real-sats client testing, your Breez SDK Spark wallet is funded.\n'
+printf '  4. Breez payer credentials stay client-side and are not written to this service .env.\n\n'
 
 paygate_enabled="$(prompt "Enable Paygate payment enforcement" "$DEFAULT_PAYGATE_ENABLED")"
 paygate_backend="$(prompt_paygate_backend)"
@@ -170,15 +135,6 @@ lightning_timeout="$(prompt "Paygate Lightning timeout seconds" "$DEFAULT_PAYGAT
 lnbits_request_timeout="$(prompt "LNbits request timeout seconds" "$DEFAULT_PAYGATE_LNBITS_REQUEST_TIMEOUT_SECONDS")"
 lnbits_connect_timeout="$(prompt "LNbits connect timeout seconds" "$DEFAULT_PAYGATE_LNBITS_CONNECT_TIMEOUT_SECONDS")"
 
-printf '\nOptional Voltage/LND payer settings for scripts/paygate-lnd-real-sats-test.sh.\n'
-voltage_url="$(normalize_lnd_rest_url "$(prompt "Voltage LND REST URL, blank to skip" "")")"
-voltage_macaroon=""
-voltage_tls_cert_path=""
-if [ -n "$voltage_url" ]; then
-  voltage_macaroon="$(prompt_secret "Voltage macaroon hex (input hidden)")"
-  voltage_tls_cert_path="$(prompt "TLS cert path, blank for Voltage hosted default" "")"
-fi
-
 printf '\nOptional LNbits payer settings for scripts/paygate-lnbits-real-sats-test.sh.\n'
 payer_lnbits_url="$(normalize_lnbits_url "$(prompt "Payer LNbits root URL, blank to skip" "")")"
 payer_lnbits_admin_key=""
@@ -201,7 +157,6 @@ require_non_empty "REPORT_SIGNING_KEY_ID" "$report_signing_key_id"
 require_non_negative_int "PAYGATE_LIGHTNING_TIMEOUT_SECONDS" "$lightning_timeout"
 require_non_negative_int "PAYGATE_LNBITS_REQUEST_TIMEOUT_SECONDS" "$lnbits_request_timeout"
 require_non_negative_int "PAYGATE_LNBITS_CONNECT_TIMEOUT_SECONDS" "$lnbits_connect_timeout"
-require_hex_if_present "PAYER_LND_MACAROON_HEX" "$voltage_macaroon"
 
 if [ -f "$ENV_PATH" ]; then
   backup="$ENV_PATH.bak-$(date +%Y%m%d%H%M%S)"
@@ -226,14 +181,6 @@ umask 077
   printf 'BASE_URL=%s\n' "$(shell_quote "$base_url")"
   printf 'REPORT_SIGNING_KEY_ID=%s\n' "$(shell_quote "$report_signing_key_id")"
 
-  if [ -n "$voltage_url" ]; then
-    printf '\nPAYER_LND_REST_URL=%s\n' "$(shell_quote "$voltage_url")"
-    printf 'PAYER_LND_MACAROON_HEX=%s\n' "$(shell_quote "$voltage_macaroon")"
-    if [ -n "$voltage_tls_cert_path" ]; then
-      printf 'PAYER_LND_TLS_CERT_PATH=%s\n' "$(shell_quote "$voltage_tls_cert_path")"
-    fi
-  fi
-
   if [ -n "$payer_lnbits_url" ]; then
     printf '\nPAYER_LNBITS_URL=%s\n' "$(shell_quote "$payer_lnbits_url")"
     printf 'PAYER_LNBITS_ADMIN_KEY=%s\n' "$(shell_quote "$payer_lnbits_admin_key")"
@@ -246,6 +193,6 @@ printf '\nWrote %s\n' "$ENV_PATH"
 printf '\nNext commands:\n'
 printf '  source scripts/local-dev-env.sh\n'
 printf '  ./gradlew bootRun\n'
-printf '\nIn another shell, run your Voltage paid test:\n'
+printf '\nIn another shell, export BREEZ_API_KEY and BREEZ_MNEMONIC, then run:\n'
 printf '  source scripts/local-dev-env.sh\n'
-printf '  scripts/paygate-lnd-real-sats-test.sh example.com dns\n'
+printf '  scripts/paygate-breez-real-sats-test.sh example.com dns\n'

@@ -138,6 +138,33 @@ class TrustReportServiceTest {
             "providers.phishing_malware",
             "providers.reputation",
             "providers.domain_registration");
+    assertValidSignature(report);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void omittedRiskCheckOmitsBothRiskLocationsAndKeepsSignatureValid() throws Exception {
+    FakeSafeHttpClient http = new FakeSafeHttpClient(properties);
+    TrustReportService service = service(http, domain -> "93.184.216.34");
+
+    Map<String, Object> report =
+        service.createReport(
+            new TrustReportRequest("example.com", "example.com", Set.of(TrustCheck.DNS)));
+    Map<String, Object> checks = (Map<String, Object>) report.get("checks");
+
+    assertThat(checks).doesNotContainKey("risk");
+    assertThat(report).doesNotContainKey("risk");
+    assertValidSignature(report);
+  }
+
+  private void assertValidSignature(Map<String, Object> report) {
+    ReportSigner signer = new ReportSigner(properties, new ObjectMapper());
+    ReportVerificationService verificationService =
+        new ReportVerificationService(signer, new ReceiptBindingService(signer), properties);
+    assertThat(verificationService.verify(report))
+        .containsEntry("valid", true)
+        .containsEntry("signatureValid", true)
+        .containsEntry("digestMatches", true);
   }
 
   private TrustReportService service(FakeSafeHttpClient http, AddressForDomain addressForDomain) {

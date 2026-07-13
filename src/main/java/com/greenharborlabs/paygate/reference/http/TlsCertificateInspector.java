@@ -1,13 +1,16 @@
 package com.greenharborlabs.paygate.reference.http;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Duration;
@@ -89,7 +92,7 @@ public class TlsCertificateInspector {
       if (hasCertificateTimeValidityFailure(ex)) {
         enrichWithDiagnosticCertificate(result, warnings, domain, address);
       }
-    } catch (Exception ex) {
+    } catch (IOException | RuntimeException ex) {
       result.putAll(certificateInspectionFailure(ex, warnings));
     }
     result.put("warnings", warnings);
@@ -124,21 +127,25 @@ public class TlsCertificateInspector {
     return result;
   }
 
-  private Optional<DiagnosticCertificate> diagnosticLeafCertificate(String domain, InetAddress address) {
+  private Optional<DiagnosticCertificate> diagnosticLeafCertificate(
+      String domain, InetAddress address, List<String> warnings) {
     // Diagnostic-only: default JVM validation has already failed and remains authoritative.
     // This scoped non-validating socket is used only to collect peer certificate metadata.
     try (SSLSocket socket = newSocket(diagnosticSocketFactory)) {
       connectAndHandshake(socket, domain, address);
       SSLSession session = socket.getSession();
       return Optional.of(new DiagnosticCertificate(leafCertificate(session), session));
-    } catch (Exception ex) {
+    } catch (IOException ex) {
+      return Optional.empty();
+    } catch (RuntimeException ex) {
+      warnings.add("tls-diagnostic-failed");
       return Optional.empty();
     }
   }
 
   private void enrichWithDiagnosticCertificate(
       Map<String, Object> result, List<String> warnings, String domain, InetAddress address) {
-    diagnosticLeafCertificate(domain, address)
+    diagnosticLeafCertificate(domain, address, warnings)
         .ifPresent(
             diagnostic -> {
               List<String> diagnosticWarnings = new ArrayList<>(warnings);
@@ -148,8 +155,9 @@ public class TlsCertificateInspector {
                 result.putAll(metadata);
                 warnings.clear();
                 warnings.addAll(diagnosticWarnings);
-              } catch (Exception ex) {
+              } catch (RuntimeException ex) {
                 // Diagnostic enrichment must never replace the authoritative TLS failure.
+                warnings.add("tls-diagnostic-failed");
               }
             });
   }
@@ -164,11 +172,14 @@ public class TlsCertificateInspector {
     socket.startHandshake();
   }
 
+  // Ownership transfers to the caller for an SSLSocket; rejected socket types are closed here.
+  @SuppressWarnings("PMD.CloseResource")
   private SSLSocket newSocket(SSLSocketFactory factory) throws java.io.IOException {
     Socket socket = factory.createSocket();
     if (socket instanceof SSLSocket sslSocket) {
       return sslSocket;
     }
+    socket.close();
     throw new SSLException("Socket factory did not create an SSL socket");
   }
 
@@ -244,7 +255,7 @@ public class TlsCertificateInspector {
         }
       }
       return dnsNames;
-    } catch (Exception ex) {
+    } catch (CertificateParsingException ex) {
       return List.of();
     }
   }
@@ -262,7 +273,7 @@ public class TlsCertificateInspector {
       SSLContext context = SSLContext.getInstance("TLS");
       context.init(null, new TrustManager[] {new DiagnosticTrustManager()}, new SecureRandom());
       return context.getSocketFactory();
-    } catch (Exception ex) {
+    } catch (GeneralSecurityException ex) {
       return (SSLSocketFactory) SSLSocketFactory.getDefault();
     }
   }

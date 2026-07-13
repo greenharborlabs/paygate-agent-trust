@@ -170,6 +170,28 @@ class TlsCertificateInspectorTest {
 
   @Test
   @SuppressWarnings("unchecked")
+  void diagnosticRuntimeFailureAddsOnlyBoundedWarning() throws Exception {
+    SocketHarness harness = socketHarness(null);
+    SSLHandshakeException failure = new SSLHandshakeException("raw provider detail");
+    failure.initCause(new CertificateExpiredException("expired raw detail"));
+    doThrow(failure).when(harness.primarySocket()).startHandshake();
+    doThrow(new IllegalStateException("diagnostic secret detail"))
+        .when(harness.diagnosticSocket())
+        .startHandshake();
+
+    Map<String, Object> result = harness.inspector().inspect("example.com", List.of(InetAddress.getLoopbackAddress()));
+
+    assertThat(result)
+        .containsEntry("status", "failed")
+        .containsEntry("reason", "TARGET_TLS_FAILED")
+        .containsEntry("message", "TLS handshake failed.");
+    assertThat((List<String>) result.get("warnings"))
+        .containsExactly("tls-handshake-failed", "tls-diagnostic-failed")
+        .noneMatch(warning -> warning.contains("secret"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void diagnosticMetadataFailureKeepsNormalizedTlsFailure() throws Exception {
     X509Certificate certificate = mock(X509Certificate.class);
     when(certificate.getNotBefore()).thenThrow(new IllegalStateException("raw metadata detail"));
@@ -186,7 +208,8 @@ class TlsCertificateInspectorTest {
         .containsEntry("reason", "TARGET_TLS_FAILED")
         .containsEntry("message", "TLS handshake failed.")
         .doesNotContainKey("subject");
-    assertThat((List<String>) result.get("warnings")).containsExactly("tls-handshake-failed");
+    assertThat((List<String>) result.get("warnings"))
+        .containsExactly("tls-handshake-failed", "tls-diagnostic-failed");
   }
 
   @Test

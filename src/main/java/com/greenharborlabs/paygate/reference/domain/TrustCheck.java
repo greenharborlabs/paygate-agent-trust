@@ -1,6 +1,7 @@
 package com.greenharborlabs.paygate.reference.domain;
 
 import java.util.List;
+import java.util.Locale;
 
 public enum TrustCheck {
   DNS,
@@ -13,7 +14,7 @@ public enum TrustCheck {
   RISK;
 
   public static TrustCheck parse(String value) {
-    return switch (value.toLowerCase()) {
+    return switch (value.toLowerCase(Locale.ROOT)) {
       case "dns" -> DNS;
       case "tls" -> TLS;
       case "http" -> HTTP;

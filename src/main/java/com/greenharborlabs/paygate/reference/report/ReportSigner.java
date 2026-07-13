@@ -44,7 +44,7 @@ public class ReportSigner {
       String value = Base64.getUrlEncoder().withoutPadding().encodeToString(signature.sign());
       return new Signed(digest, "Ed25519", properties.reportSigningKeyId(), value, properties.reportSigningPublicKey());
     } catch (Exception ex) {
-      throw new ApiProblem("REPORT_SIGNING_FAILED", HttpStatus.SERVICE_UNAVAILABLE, true, "Report signing failed.");
+      throw new ApiProblem("REPORT_SIGNING_FAILED", HttpStatus.SERVICE_UNAVAILABLE, true, "Report signing failed.", ex);
     }
   }
 
@@ -52,7 +52,7 @@ public class ReportSigner {
     try {
       return digest(canonicalPayloadBytes(canonicalPayload));
     } catch (Exception ex) {
-      throw new ApiProblem("REPORT_DIGEST_FAILED", HttpStatus.BAD_REQUEST, false, "Report digest failed.");
+      throw new ApiProblem("REPORT_DIGEST_FAILED", HttpStatus.BAD_REQUEST, false, "Report digest failed.", ex);
     }
   }
 
@@ -65,11 +65,12 @@ public class ReportSigner {
       verifier.update(payload);
       return verifier.verify(signatureBytes);
     } catch (IllegalArgumentException ex) {
-      throw new ApiProblem("INVALID_SIGNATURE", HttpStatus.BAD_REQUEST, false, "Malformed signature.");
+      throw new ApiProblem("INVALID_SIGNATURE", HttpStatus.BAD_REQUEST, false, "Malformed signature.", ex);
     } catch (SignatureException ex) {
-      throw new ApiProblem("INVALID_SIGNATURE", HttpStatus.BAD_REQUEST, false, "Malformed signature.");
+      throw new ApiProblem("INVALID_SIGNATURE", HttpStatus.BAD_REQUEST, false, "Malformed signature.", ex);
     } catch (Exception ex) {
-      throw new ApiProblem("REPORT_VERIFICATION_FAILED", HttpStatus.SERVICE_UNAVAILABLE, true, "Report verification failed.");
+      throw new ApiProblem(
+          "REPORT_VERIFICATION_FAILED", HttpStatus.SERVICE_UNAVAILABLE, true, "Report verification failed.", ex);
     }
   }
 
