@@ -10,7 +10,7 @@ Fly runs one always-on 1 GB shared-CPU Machine in `iad`; LNbits is the payee bac
 2. Generate Ed25519 material offline, convert it to Base64 PKCS#8 private and X.509 public DER, choose a stable key ID such as `2026-07-prod`, and assign encrypted-backup ownership.
 3. Generate a separate MPP binding secret of at least 32 bytes.
 4. Create an app-scoped Fly token with an expiry, store it only as the protected GitHub `production` environment's `FLY_API_TOKEN`, and require environment approval before deployments. Keep workflow actions pinned to immutable commits.
-5. Set Fly secrets: `SPRING_PROFILES_ACTIVE=prod`, `PAYGATE_ENABLED=true`, `PAYGATE_BACKEND=lnbits`, HTTPS `PAYGATE_LNBITS_URL`, `PAYGATE_LNBITS_API_KEY`, binding secret, signing keys, and key ID. Enter values via a prompt, secret manager, or `flyctl secrets import`; never retain literal values in shell history, source files, or CI logs. Use `flyctl secrets list` to inspect names only.
+5. Stage Fly secrets with `scripts/configure-fly-production-secrets.sh`. It reads generated key files when available, otherwise accepts hidden input restored from the encrypted recovery vault. It validates the HTTPS LNbits URL, binding-secret length, signing-key encodings, and key-pair match before using `flyctl secrets import --stage`; it never deploys. Never pass secret values as command-line arguments or retain them in shell history, source files, or CI logs. Use `flyctl secrets list` to inspect names only.
 6. Production deploys only from strict `vX.Y.Z` tags already contained in `master`.
 
 `/healthz` intentionally does not depend on LNbits. Validate LNbits through challenge creation and the paid smoke.
