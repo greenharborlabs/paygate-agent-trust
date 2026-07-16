@@ -9,6 +9,12 @@ primary_region = 'iad'
 [build]
   dockerfile = 'Dockerfile'
 
+[mounts]
+  source = 'paygate_keys'
+  destination = '/home/app/.paygate'
+  initial_size = '1gb'
+  snapshot_retention = 14
+
 [http_service]
   internal_port = 8080
   force_https = true

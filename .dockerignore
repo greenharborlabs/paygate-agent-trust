@@ -1,6 +1,7 @@
 .git
 .github
 .gradle
+.cache
 build
 .env
 .env.*

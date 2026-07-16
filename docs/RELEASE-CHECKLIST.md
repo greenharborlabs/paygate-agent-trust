@@ -6,6 +6,7 @@
 - [ ] Set `version=X.Y.Z` in `gradle.properties` and finalize `CHANGELOG.md`.
 - [ ] Run `./gradlew clean build --no-daemon`, `shellcheck scripts/*.sh`, and `scripts/container-smoke.sh`.
 - [ ] Run `flyctl config validate` without printing secrets.
+- [ ] Confirm `fly.toml` declares the `paygate_keys` volume in `iad` at `/home/app/.paygate`; after its first deploy, verify it is encrypted and attached.
 - [ ] Stage and verify production secret names with `scripts/configure-fly-production-secrets.sh`; do not deploy from the setup script.
 - [ ] Confirm `production` has an app-scoped expiring `FLY_API_TOKEN`, reviewed `REPORT_SIGNING_KEY_ID` variable, approval protection, and tag restriction `v*`.
 - [ ] Merge the green, reviewed release PR before tagging.

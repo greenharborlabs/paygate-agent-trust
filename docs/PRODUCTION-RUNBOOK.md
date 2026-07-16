@@ -2,7 +2,7 @@
 
 ## Architecture
 
-Fly runs one always-on 1 GB shared-CPU Machine in `iad`; LNbits is the payee backend. Breez SDK Spark is only the external verification payer. There is no volume or database. Rate limits and report caches are process-local, so horizontal scaling requires distributed replacements first.
+Fly runs one always-on 1 GB shared-CPU Machine in `iad`; LNbits is the payee backend. Breez SDK Spark is only the external verification payer. The encrypted `paygate_keys` Fly volume persists macaroon root keys at `/home/app/.paygate`; there is no database. Rate limits and report caches are process-local, so horizontal scaling requires distributed replacements and root-key replication first.
 
 ## Provisioning
 
@@ -11,7 +11,8 @@ Fly runs one always-on 1 GB shared-CPU Machine in `iad`; LNbits is the payee bac
 3. Generate a separate MPP binding secret of at least 32 bytes.
 4. Create an app-scoped Fly token with an expiry, store it only as the protected GitHub `production` environment's `FLY_API_TOKEN`, and require environment approval before deployments. Keep workflow actions pinned to immutable commits.
 5. Stage Fly secrets with `scripts/configure-fly-production-secrets.sh`. It reads generated key files when available, otherwise accepts hidden input restored from the encrypted recovery vault. It validates the HTTPS LNbits URL, binding-secret length, signing-key encodings, and key-pair match before using `flyctl secrets import --stage`; it never deploys. Never pass secret values as command-line arguments or retain them in shell history, source files, or CI logs. Use `flyctl secrets list` to inspect names only.
-6. Production deploys only from strict `vX.Y.Z` tags already contained in `master`.
+6. Confirm `fly.toml` declares the 1 GB `paygate_keys` volume in `iad`. The first deploy creates it; after deployment, confirm `flyctl volumes list -a paygate-agent-trust` shows it as encrypted and attached. Fly retains daily snapshots for 14 days.
+7. Production deploys only from strict `vX.Y.Z` tags already contained in `master`.
 
 `/healthz` intentionally does not depend on LNbits. Validate LNbits through challenge creation and the paid smoke.
 
@@ -25,4 +26,4 @@ Generate and back up replacements offline. Change private key, public key, and k
 
 ## Rollback
 
-Redeploy the last verified immutable Fly image, wait for routing health, and rerun health, catalog/key ID, quote, and `402` checks. Run paid verification when payment behavior may be affected. Open a forward-fix patch; never move or reuse a tag. Rehearse this once before declaring the service operational.
+Redeploy the last verified immutable Fly image with the existing `paygate_keys` volume attached, wait for routing health, and rerun health, catalog/key ID, quote, and `402` checks. Run paid verification when payment behavior may be affected. If the volume is lost, restore its latest snapshot before serving paid traffic; rotating to a fresh root key invalidates outstanding L402 credentials. Open a forward-fix patch; never move or reuse a tag. Rehearse this once before declaring the service operational.
