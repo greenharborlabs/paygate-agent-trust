@@ -30,6 +30,9 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 curl --fail --silent "$base_url/healthz" | grep -q '"status":"ok"'
+curl --fail --silent "$base_url/" | grep -q '"catalog":"https://paygate-agent-trust.fly.dev/api/v1/catalog"'
+curl --fail --silent "$base_url/" | grep -q '"github":"https://github.com/greenharborlabs/paygate-agent-trust"'
+curl --fail --silent "$base_url/" | grep -q '"documentation":"https://github.com/greenharborlabs/paygate-agent-trust#readme"'
 curl --fail --silent "$base_url/api/v1/catalog" | grep -q '"keyId":"container-smoke"'
 curl --fail --silent "$base_url/api/v1/verification/keys" | grep -q '"kid":"container-smoke"'
 curl --fail --silent "$base_url/api/v1/trust/quote?domain=example.com&checks=dns" | grep -q '"priceSats":10'

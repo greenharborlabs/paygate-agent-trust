@@ -2,6 +2,10 @@
 
 Public Spring Boot reference service for selling signed agent trust reports through Paygate. The service exposes free catalog, quote, key-discovery, and verification APIs, then protects trust report generation with Paygate payment challenges when payment enforcement is enabled.
 
+Live service: <https://paygate-agent-trust.fly.dev/>.
+
+The production API flow below is available after the deterministic [v0.1.2 release](https://github.com/greenharborlabs/paygate-agent-trust/releases/tag/v0.1.2) has been deployed and verified. Website publication remains blocked until that verification is complete.
+
 ## Contents
 
 - [Choose A Run Mode](#choose-a-run-mode)
@@ -218,14 +222,14 @@ The payer wallet must expose the payment preimage after sending the payment. LNb
 Install the pinned client with Breez support and use a funded mainnet wallet:
 
 ```bash
-python -m pip install "paygate-client[breez] @ git+https://github.com/greenharborlabs/paygate-client.git@684b6f556d0916643e2283ef66b8c21d776de6bd"
+pipx install --force "paygate-client[breez] @ git+https://github.com/greenharborlabs/paygate-client.git@e687fccb9a0a3d5ae9d3878b6e4fb4853df31901"
 export BREEZ_API_KEY="<breez-api-key>"
 export BREEZ_MNEMONIC="<breez-wallet-seed-words>"
 export PAYGATE_BASE_URL="http://localhost:8080"
 scripts/paygate-breez-real-sats-test.sh example.com dns
 ```
 
-The policy caps reports at 50 sats and fees at 10 sats. The Breez backend forces BOLT11 settlement with `prefer_spark=false`, requires a preimage, and verifies `sha256(preimage) == payment_hash` before retrying. The helper also requires a receipt and verifies the signed report publicly.
+The helper runs `paygate backend doctor` before requesting an invoice and prints its JSON error envelope if the payer is not ready. The policy caps reports at 50 sats and fees at 10 sats. The Breez backend forces BOLT11 settlement with `prefer_spark=false`, requires a preimage, and verifies `sha256(preimage) == payment_hash` before retrying. The helper also requires a receipt and verifies the signed report publicly.
 
 ## API Walkthrough
 
@@ -235,11 +239,42 @@ Set a base URL first:
 export BASE_URL="http://localhost:8080"
 ```
 
-For a deployed app:
+For the live service:
 
 ```bash
-export BASE_URL="https://<app>.fly.dev"
+export BASE_URL="https://paygate-agent-trust.fly.dev"
 ```
+
+### Live Production Flow
+
+After v0.1.2 has been deployed and verified, the following commands are copy-pasteable against production. The final request is intentionally unauthenticated and should return `402 Payment Required`; a payer must then pay its challenge and retry with a valid `Authorization` credential.
+
+```bash
+# Root discovery
+curl -i https://paygate-agent-trust.fly.dev/
+
+# Service catalog
+curl -s https://paygate-agent-trust.fly.dev/api/v1/catalog
+
+# DNS-only quote
+curl -s 'https://paygate-agent-trust.fly.dev/api/v1/trust/quote?domain=example.com&checks=dns'
+
+# Ed25519 verification keys
+curl -s https://paygate-agent-trust.fly.dev/api/v1/verification/keys
+
+# Protected DNS report — expected: 402 Payment Required
+curl -i 'https://paygate-agent-trust.fly.dev/api/v1/trust/report?domain=example.com&checks=dns'
+```
+
+Production endpoint URLs:
+
+| Purpose | Absolute URL |
+| --- | --- |
+| Catalog | <https://paygate-agent-trust.fly.dev/api/v1/catalog> |
+| Quote | <https://paygate-agent-trust.fly.dev/api/v1/trust/quote?domain=example.com&checks=dns> |
+| Verification keys | <https://paygate-agent-trust.fly.dev/api/v1/verification/keys> |
+| Verify a report | <https://paygate-agent-trust.fly.dev/api/v1/trust/verify> |
+| Protected report | <https://paygate-agent-trust.fly.dev/api/v1/trust/report?domain=example.com&checks=dns> |
 
 ### Endpoints
 
@@ -378,7 +413,7 @@ Expected successful response shape:
 
 If the report includes `receiptBinding`, the response also includes `receiptBindingValid`.
 
-### OpenAPI And Swagger UI
+### OpenAPI And Swagger UI (Local Development)
 
 ```bash
 curl -s "$BASE_URL/v3/api-docs"
@@ -386,7 +421,7 @@ curl -s "$BASE_URL/v3/api-docs.yaml"
 open "$BASE_URL/swagger-ui.html"
 ```
 
-SwaggerHub/API Hub is not required for v1. The in-app Swagger UI is free to run with the service and keeps the published docs tied to the deployed API version.
+Swagger and `/v3/api-docs` are local-development surfaces by default. Production disables Springdoc, so do not use the live service for Swagger UI or OpenAPI-document discovery. SwaggerHub/API Hub is not required for v1.
 
 ## Checks And Pricing
 
@@ -580,7 +615,7 @@ fly secrets list
 After deploy, check health, catalog, and keys:
 
 ```bash
-export BASE_URL="https://<app>.fly.dev"
+export BASE_URL="https://paygate-agent-trust.fly.dev"
 curl -s "$BASE_URL/healthz"
 curl -s "$BASE_URL/api/v1/catalog"
 curl -s "$BASE_URL/api/v1/verification/keys"

@@ -30,12 +30,15 @@ class OpenApiDocumentationTest {
     Map<String, Object> info = (Map<String, Object>) spec.get("info");
     assertThat(info)
         .containsEntry("title", "Paygate Agent Trust API")
-        .containsEntry("version", "0.1.0");
+        .containsEntry("version", "0.1.2");
+
+    assertThat(spec.get("servers").toString()).contains("https://paygate-agent-trust.fly.dev");
 
     Map<String, Object> paths = (Map<String, Object>) spec.get("paths");
     assertThat(paths.keySet())
         .contains(
             "/healthz",
+            "/",
             "/api/v1/catalog",
             "/api/v1/verification/keys",
             "/api/v1/trust/verify",
@@ -51,13 +54,47 @@ class OpenApiDocumentationTest {
 
     Map<String, Object> components = (Map<String, Object>) spec.get("components");
     Map<String, Object> schemas = (Map<String, Object>) components.get("schemas");
-    assertThat(schemas.keySet()).contains("TrustReportResponse", "QuoteResponse", "ApiProblemResponse");
+    assertThat(schemas.keySet())
+        .contains("DiscoveryResponse", "TrustReportResponse", "QuoteResponse", "ApiProblemResponse");
+
+    Map<String, Object> rootPath = (Map<String, Object>) paths.get("/");
+    Map<String, Object> rootGet = (Map<String, Object>) rootPath.get("get");
+    Map<String, Object> rootResponses = (Map<String, Object>) rootGet.get("responses");
+    Map<String, Object> rootOk = (Map<String, Object>) rootResponses.get("200");
+    Map<String, Object> rootContent = (Map<String, Object>) rootOk.get("content");
+    Map<String, Object> rootJson = (Map<String, Object>) rootContent.get("application/json");
+    assertThat(rootJson.toString()).contains("#/components/schemas/DiscoveryResponse");
   }
 
   @Test
   void openApiYamlAndSwaggerUiAreExposed() throws Exception {
     assertThat(get("/v3/api-docs.yaml").statusCode()).isEqualTo(200);
     assertThat(get("/swagger-ui.html").statusCode()).isIn(200, 302, 307, 308);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rootProvidesUnauthenticatedJsonDiscoveryOnRepeatedRequests() throws Exception {
+    Map<String, Object> expected =
+        Map.of(
+            "service", "paygate-agent-trust",
+            "description", "Paid, signed agent trust reports over Lightning.",
+            "status", "live",
+            "links",
+                Map.of(
+                    "catalog", "https://paygate-agent-trust.fly.dev/api/v1/catalog",
+                    "github", "https://github.com/greenharborlabs/paygate-agent-trust",
+                    "documentation", "https://github.com/greenharborlabs/paygate-agent-trust#readme"));
+
+    HttpResponse<String> first = get("/");
+    HttpResponse<String> second = get("/");
+
+    assertThat(first.statusCode()).isEqualTo(200);
+    assertThat(first.headers().firstValue("Content-Type")).contains("application/json");
+    assertThat(MAPPER.readValue(first.body(), Map.class)).isEqualTo(expected);
+    assertThat(second.statusCode()).isEqualTo(200);
+    assertThat(second.headers().firstValue("Content-Type")).contains("application/json");
+    assertThat(MAPPER.readValue(second.body(), Map.class)).isEqualTo(expected);
   }
 
   private Map<String, Object> getJson(String path) throws Exception {

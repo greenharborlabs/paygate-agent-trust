@@ -26,6 +26,23 @@ class TrustCatalogControllerTest {
 
   @Test
   @SuppressWarnings("unchecked")
+  void rootPublishesPublicDiscoveryMetadata() {
+    Map<String, Object> root = controller.root();
+
+    assertThat(root)
+        .containsEntry("service", "paygate-agent-trust")
+        .containsEntry("description", "Paid, signed agent trust reports over Lightning.")
+        .containsEntry("status", "live");
+    assertThat((Map<String, String>) root.get("links"))
+        .containsExactlyInAnyOrderEntriesOf(
+            Map.of(
+                "catalog", "https://paygate-agent-trust.fly.dev/api/v1/catalog",
+                "github", "https://github.com/greenharborlabs/paygate-agent-trust",
+                "documentation", "https://github.com/greenharborlabs/paygate-agent-trust#readme"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void catalogPublishesExpandedChecksPricingDefaultsAndVerificationUrls() {
     Map<String, Object> catalog = controller.catalog();
     List<String> expectedChecks =
