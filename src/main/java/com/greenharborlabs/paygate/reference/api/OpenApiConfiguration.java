@@ -15,14 +15,14 @@ import org.springframework.context.annotation.Configuration;
     info =
         @Info(
             title = "Paygate Agent Trust API",
-            version = "0.1.0",
+            version = "0.1.2",
             description =
                 "Public reference API for quoting, selling, signing, and verifying Paygate-backed agent trust reports.",
             contact = @Contact(name = "Green Harbor Labs"),
             license = @License(name = "Proprietary")),
     servers = {
       @Server(url = "http://localhost:8080", description = "Local development"),
-      @Server(url = "https://<app>.fly.dev", description = "Deployed Fly app")
+      @Server(url = "https://paygate-agent-trust.fly.dev", description = "Deployed Fly app")
     })
 @SecurityScheme(
     name = "paymentAuth",

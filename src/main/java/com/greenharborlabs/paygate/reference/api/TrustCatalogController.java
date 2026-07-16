@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,6 +33,27 @@ public class TrustCatalogController {
   @GetMapping("/healthz")
   public Map<String, String> healthz() {
     return Map.of("status", "ok");
+  }
+
+  @Operation(
+      summary = "Discover Paygate Agent Trust",
+      description = "Returns public service metadata and links for agent discovery.",
+      responses =
+          @ApiResponse(
+              responseCode = "200",
+              description = "Public service discovery metadata.",
+              content = @Content(schema = @Schema(implementation = OpenApiSchemas.DiscoveryResponse.class))))
+  @GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
+  public Map<String, Object> root() {
+    return Map.of(
+        "service", "paygate-agent-trust",
+        "description", "Paid, signed agent trust reports over Lightning.",
+        "status", "live",
+        "links",
+            Map.of(
+                "catalog", "https://paygate-agent-trust.fly.dev/api/v1/catalog",
+                "github", "https://github.com/greenharborlabs/paygate-agent-trust",
+                "documentation", "https://github.com/greenharborlabs/paygate-agent-trust#readme"));
   }
 
   @Operation(

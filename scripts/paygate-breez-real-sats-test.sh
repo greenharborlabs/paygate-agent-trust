@@ -10,14 +10,24 @@ PAYGATE_CLIENT_BIN="${PAYGATE_CLIENT_BIN:-paygate}"
 : "${BREEZ_API_KEY:?BREEZ_API_KEY is required}"
 : "${BREEZ_MNEMONIC:?BREEZ_MNEMONIC is required}"
 command -v "$PAYGATE_CLIENT_BIN" >/dev/null || {
-  echo 'Install the pinned client: python -m pip install "paygate-client[breez] @ git+https://github.com/greenharborlabs/paygate-client.git@684b6f556d0916643e2283ef66b8c21d776de6bd"' >&2
+  echo 'Install the pinned client: pipx install --force "paygate-client[breez] @ git+https://github.com/greenharborlabs/paygate-client.git@e687fccb9a0a3d5ae9d3878b6e4fb4853df31901"' >&2
   exit 1
 }
 
 url="${BASE_URL%/}/api/v1/trust/report?domain=${DOMAIN}&checks=${CHECKS}"
 result="$(mktemp)"
-trap 'rm -f "$result"' EXIT
-"$PAYGATE_CLIENT_BIN" request GET "$url" --config "$CONFIG" >"$result"
+doctor_result="$(mktemp)"
+trap 'rm -f "$result" "$doctor_result"' EXIT
+if ! "$PAYGATE_CLIENT_BIN" backend doctor --config "$CONFIG" --json >"$doctor_result"; then
+  echo "Paygate payer preflight failed:" >&2
+  sed 's/^/  /' "$doctor_result" >&2
+  exit 1
+fi
+if ! "$PAYGATE_CLIENT_BIN" request GET "$url" --config "$CONFIG" >"$result"; then
+  echo "Paygate paid request failed:" >&2
+  sed 's/^/  /' "$result" >&2
+  exit 1
+fi
 
 python3 - "$result" "${BASE_URL%/}/api/v1/trust/verify" <<'PY'
 import json

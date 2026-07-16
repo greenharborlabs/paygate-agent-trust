@@ -1,0 +1,31 @@
+{
+  "plan_path": "plans/post-production-publication-pass.md",
+  "plan_hash": "9af6aae296a517344b8dc9f90d0c9a109875d9b0cb32098d2c2fc11112391140",
+  "start_commit": "672b814b69734938f9bb26459f0576c05badd9a4",
+  "tasks": {
+    "W1-01": "completed",
+    "W1-02": "completed"
+  },
+  "blocked_reasons": {},
+  "gates": {
+    "final_verification": "pending",
+    "specialist_review": "pending"
+  },
+  "touched_tests": [
+    "src/test/java/com/greenharborlabs/paygate/reference/api/TrustCatalogControllerTest.java",
+    "src/test/java/com/greenharborlabs/paygate/reference/api/OpenApiDocumentationTest.java"
+  ],
+  "contract_registry": [
+    {
+      "file": "src/main/java/com/greenharborlabs/paygate/reference/api/TrustCatalogController.java",
+      "name": "GET /",
+      "signature": "200 application/json DiscoveryResponse(service, description, status, links)"
+    }
+  ],
+  "agent_suite": {
+    "coder": "greenharbor-backend-coder-java",
+    "reviewer": "greenharbor-backend-reviewer-java",
+    "architect": "greenharbor-backend-planning-architect"
+  },
+  "test_cmd": "./gradlew test --tests \"com.greenharborlabs.paygate.reference.api.TrustCatalogControllerTest\" --tests \"com.greenharborlabs.paygate.reference.api.OpenApiDocumentationTest\" --no-daemon"
+}

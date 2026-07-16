@@ -13,6 +13,20 @@ public final class OpenApiSchemas {
   public record HealthResponse(
       @Schema(description = "Health status.", example = "ok") String status) {}
 
+  @Schema(name = "DiscoveryResponse", description = "Public Paygate Agent Trust service discovery metadata.")
+  public record DiscoveryResponse(
+      @Schema(description = "Service identifier.", example = "paygate-agent-trust") String service,
+      @Schema(description = "Human-readable service description.", example = "Paid, signed agent trust reports over Lightning.")
+          String description,
+      @Schema(description = "Service status.", example = "live") String status,
+      @Schema(description = "Absolute service discovery links.", implementation = DiscoveryLinks.class) DiscoveryLinks links) {}
+
+  @Schema(name = "DiscoveryLinks", description = "Public service discovery links.")
+  public record DiscoveryLinks(
+      @Schema(description = "Absolute catalog URL.", example = "https://paygate-agent-trust.fly.dev/api/v1/catalog") String catalog,
+      @Schema(description = "Source repository URL.", example = "https://github.com/greenharborlabs/paygate-agent-trust") String github,
+      @Schema(description = "Documentation URL.", example = "https://github.com/greenharborlabs/paygate-agent-trust#readme") String documentation) {}
+
   @Schema(name = "CatalogResponse", description = "Service metadata, pricing, verification URLs, and signing key.")
   public record CatalogResponse(
       @Schema(description = "Service identifier.", example = "paygate-reference-service") String service,
