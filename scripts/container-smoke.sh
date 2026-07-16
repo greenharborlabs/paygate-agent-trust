@@ -16,7 +16,7 @@ docker build --tag "$IMAGE" .
 docker run --detach --name "$CONTAINER_NAME" --publish "127.0.0.1:${PORT}:8080" \
   --env PAYGATE_ENABLED=true \
   --env PAYGATE_TEST_MODE=true \
-  --env PAYGATE_ROOT_KEY_STORE=memory \
+  --env PAYGATE_ROOT_KEY_STORE=file \
   --env SPRING_PROFILES_ACTIVE=local \
   --env PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET=container-smoke-binding-secret-32-bytes \
   --env REPORT_SIGNING_PRIVATE_KEY="$PRIVATE_KEY" \
@@ -40,6 +40,7 @@ test "$status" = "402"
 grep -q '"protocols"' /tmp/paygate-smoke-challenge.json
 
 test "$(docker inspect --format '{{.Config.User}}' "$CONTAINER_NAME")" = "10001:10001"
+test -n "$(docker exec "$CONTAINER_NAME" find /home/app/.paygate/keys -type f -print -quit)"
 docker stop --time 30 "$CONTAINER_NAME" >/dev/null
 exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER_NAME")"
 case "$exit_code" in
