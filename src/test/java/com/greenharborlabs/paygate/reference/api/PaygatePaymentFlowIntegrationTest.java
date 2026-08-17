@@ -51,6 +51,8 @@ import tools.jackson.databind.json.JsonMapper;
 class PaygatePaymentFlowIntegrationTest {
   private static final ObjectMapper MAPPER = JsonMapper.builder().build();
   private static final String REPORT_PATH = "/api/v1/trust/report?domain=example.com&checks=dns";
+  private static final String REORDERED_REPORT_PATH =
+      "/api/v1/trust/report?checks=dns&domain=example.com";
   @LocalServerPort private int port;
 
   private String baseUrl() {
@@ -67,6 +69,7 @@ class PaygatePaymentFlowIntegrationTest {
               HttpResponse.BodyHandlers.ofString());
 
       assertThat(challengeRsp.statusCode()).isEqualTo(402);
+      assertPaygateFailureHeaders(challengeRsp);
       List<String> wwwAuthHeaders = challengeRsp.headers().allValues("WWW-Authenticate");
       assertThat(wwwAuthHeaders).anyMatch(h -> h.startsWith("L402"));
       assertThat(wwwAuthHeaders).anyMatch(h -> h.startsWith("Payment"));
@@ -103,6 +106,18 @@ class PaygatePaymentFlowIntegrationTest {
       String receipt = paidRsp.headers().firstValue("Payment-Receipt").orElseThrow();
       Map<String, Object> report = MAPPER.readValue(paidRsp.body(), Map.class);
       assertThat(report).containsKeys("reportDigest", "signature", "checks", "receiptBinding");
+
+      var differentRawQueryRsp =
+          client.send(
+              HttpRequest.newBuilder()
+                  .uri(URI.create(baseUrl() + REORDERED_REPORT_PATH))
+                  .header("Authorization", "Payment " + credential)
+                  .GET()
+                  .build(),
+              HttpResponse.BodyHandlers.ofString());
+
+      assertThat(differentRawQueryRsp.statusCode()).isEqualTo(402);
+      assertPaygateFailureHeaders(differentRawQueryRsp);
 
       Map<String, Object> catalog =
           MAPPER.readValue(
@@ -144,6 +159,11 @@ class PaygatePaymentFlowIntegrationTest {
           .containsEntry("digestMatches", true)
           .containsEntry("receiptBindingValid", false);
     }
+  }
+
+  private static void assertPaygateFailureHeaders(HttpResponse<?> response) {
+    assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+    assertThat(response.headers().firstValue("X-Content-Type-Options")).contains("nosniff");
   }
 
   private Map<String, Object> post(HttpClient client, String path, Map<String, Object> body) throws Exception {

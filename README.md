@@ -4,7 +4,7 @@ Public Spring Boot reference service for selling signed agent trust reports thro
 
 Live service: <https://paygate-agent-trust.fly.dev/>.
 
-The production API flow below is available after the deterministic [v0.1.2 release](https://github.com/greenharborlabs/paygate-agent-trust/releases/tag/v0.1.2) has been deployed and verified. Website publication remains blocked until that verification is complete.
+The production API flow below is available after the deterministic [v0.1.3 release](https://github.com/greenharborlabs/paygate-agent-trust/releases/tag/v0.1.3) has been deployed and verified. Website publication remains blocked until that verification is complete.
 
 ## Contents
 
@@ -247,7 +247,7 @@ export BASE_URL="https://paygate-agent-trust.fly.dev"
 
 ### Live Production Flow
 
-After v0.1.2 has been deployed and verified, the following commands are copy-pasteable against production. The final request is intentionally unauthenticated and should return `402 Payment Required`; a payer must then pay its challenge and retry with a valid `Authorization` credential.
+After v0.1.3 has been deployed and verified, the following commands are copy-pasteable against production. The final request is intentionally unauthenticated and should return `402 Payment Required`; a payer must then pay its challenge and retry with a valid `Authorization` credential.
 
 ```bash
 # Root discovery
@@ -391,6 +391,10 @@ curl -i --get "$BASE_URL/api/v1/trust/report" \
 
 Expected paid retry result: `200 OK`. For MPP payments, the response includes a `Payment-Receipt` header and the report body includes `receiptBinding`.
 
+Paygate 0.1.5 binds credentials to the exact HTTP method, registered route, raw-query presence and value, and bounded request body. Raw query spelling and ordering are therefore part of the payment identity: a credential challenged for `domain=example.com&checks=dns` cannot authorize `checks=dns&domain=example.com`, even though the controller would interpret those queries identically. Paygate-generated failures include `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
+
+Credentials created by Paygate 0.1.4 do not satisfy the hardened 0.1.5 boundary and will be rejected after rollout. Keep the existing file-backed root-key volume and current MPP challenge-binding secret unchanged during the upgrade, and tell clients to request a fresh challenge and pay again when an older credential fails. A rollback is security-sensitive because it can re-enable acceptance of legacy credentials; use it only as an explicitly reviewed incident action.
+
 ### Verify A Report
 
 ```bash
@@ -485,6 +489,8 @@ Pricing:
 | `PAYGATE_LNBITS_URL` | LNbits modes | LNbits base URL, for example `https://legend.lnbits.com` or your self-hosted URL. Do not include an API path. |
 | `PAYGATE_LNBITS_API_KEY` | LNbits modes | Payee wallet API key used by Paygate to create invoices and check payment status. |
 | `PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET` | Payment enabled | Secret used by the MPP payment protocol. Must be at least 32 UTF-8 bytes. |
+| `PAYGATE_REQUEST_BODY_MAX_BYTES` | Optional | Maximum protected request body captured for exact-request binding. Defaults to `8192`; valid range is 1 byte through 16 MiB. The protected report endpoint is a bodyless `GET`. |
+| `PAYGATE_RATE_LIMIT_IPV6_PREFIX_LENGTH` | Optional | IPv6 prefix length used to group rate-limit abuse buckets. Defaults to `/64`; valid range is 0 through 128 bits. |
 | `PAYGATE_LIGHTNING_TIMEOUT_SECONDS` | Optional | Timeout budget for Lightning calls. |
 | `PAYGATE_LNBITS_REQUEST_TIMEOUT_SECONDS` | Optional | LNbits request timeout. |
 | `PAYGATE_LNBITS_CONNECT_TIMEOUT_SECONDS` | Optional | LNbits connect timeout. |
@@ -524,6 +530,7 @@ Production guardrails:
 - Store the LNbits API key only as a deploy secret.
 - Generate production Ed25519 report signing keys separately from local development keys.
 - Record `REPORT_SIGNING_KEY_ID` as an operational identifier, for example `2026-06-prod`, and only change it during intentional signing key rotation.
+- Preserve the file-backed Paygate root keys and MPP challenge-binding secret across upgrades. Paygate 0.1.5 rejects older boundary-incomplete credentials even when this material is stable, so affected clients must obtain and pay a new challenge.
 - Keep `PAYGATE_ENABLED=false` for local no-payment smoke tests; set it to `true` only for Paygate test mode, LNbits-backed local runs, and production.
 - Leave rate limiting enabled for public deploys. The in-app limiter is per-machine, so use one Fly machine for strict global limits or add Redis/edge limits before scaling horizontally.
 
@@ -628,7 +635,7 @@ curl -i "$BASE_URL/api/v1/trust/report?domain=example.com"
 curl -s "$BASE_URL/api/v1/trust/quote?domain=example.com"
 ```
 
-The report response should be `402 Payment Required` with `WWW-Authenticate` challenges for `L402` and `Payment`. Run the Breez helper from a separately controlled payer runner to verify the paid retry, receipt, and signed report. Production intentionally remains one Machine because rate limits and caches are process-local; distributed semantics are required before horizontal scaling. See `docs/PRODUCTION-RUNBOOK.md` and `docs/RELEASE-CHECKLIST.md`.
+The report response should be `402 Payment Required` with `WWW-Authenticate` challenges for `L402` and `Payment`. Run the Breez helper from a separately controlled payer runner to verify the paid retry, receipt, and signed report. Production intentionally remains one Machine because rate limits and caches are process-local; distributed semantics are required before horizontal scaling. See the [production runbook](docs/PRODUCTION-RUNBOOK.md), [release checklist](docs/RELEASE-CHECKLIST.md), and [changelog](CHANGELOG.md).
 
 ## Report Shape
 
