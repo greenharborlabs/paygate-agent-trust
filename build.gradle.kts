@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "4.0.5"
+    id("org.springframework.boot") version "4.0.7"
     id("io.spring.dependency-management") version "1.1.7"
     java
     pmd
@@ -20,7 +20,7 @@ repositories {
     maven(url = "https://central.sonatype.com/repository/maven-snapshots/")
 }
 
-val paygateVersion = "0.1.4"
+val paygateVersion = "0.1.5"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")

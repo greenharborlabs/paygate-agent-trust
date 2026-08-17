@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Upgraded both Paygate modules to 0.1.5 and Spring Boot to 4.0.7.
+- Declared the 8 KiB protected-request limit and IPv6 `/64` rate-limit grouping as configurable environment-backed security bounds.
+- Expanded payment-flow and container smoke coverage for exact raw-query binding, hardened Paygate failure headers, in-memory test keys, and a complete paid retry with receipt verification.
+- Documented the v0.1.5 credential migration, stable-key requirements, and security-sensitive rollback behavior.
+
 ## [0.1.2] - 2026-07-16
 
 - Added a public root discovery endpoint for the live Agent Trust service.

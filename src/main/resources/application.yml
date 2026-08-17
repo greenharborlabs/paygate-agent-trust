@@ -12,6 +12,10 @@ paygate:
   protocols:
     mpp:
       challenge-binding-secret: ${PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET:}
+  request-body:
+    max-bytes: ${PAYGATE_REQUEST_BODY_MAX_BYTES:8192}
+  rate-limit:
+    ipv6-prefix-length: ${PAYGATE_RATE_LIMIT_IPV6_PREFIX_LENGTH:64}
   lnbits:
     url: ${PAYGATE_LNBITS_URL:}
     api-key: ${PAYGATE_LNBITS_API_KEY:}

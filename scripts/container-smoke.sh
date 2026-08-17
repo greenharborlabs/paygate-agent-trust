@@ -16,7 +16,7 @@ docker build --tag "$IMAGE" .
 docker run --detach --name "$CONTAINER_NAME" --publish "127.0.0.1:${PORT}:8080" \
   --env PAYGATE_ENABLED=true \
   --env PAYGATE_TEST_MODE=true \
-  --env PAYGATE_ROOT_KEY_STORE=file \
+  --env PAYGATE_ROOT_KEY_STORE=memory \
   --env SPRING_PROFILES_ACTIVE=local \
   --env PAYGATE_PROTOCOLS_MPP_CHALLENGE_BINDING_SECRET=container-smoke-binding-secret-32-bytes \
   --env REPORT_SIGNING_PRIVATE_KEY="$PRIVATE_KEY" \
@@ -42,8 +42,11 @@ status="$(curl --silent --output /tmp/paygate-smoke-challenge.json --write-out '
 test "$status" = "402"
 grep -q '"protocols"' /tmp/paygate-smoke-challenge.json
 
+paid_response="$(PAYGATE_BASE_URL="$base_url" scripts/paygate-test-report.sh example.com dns)"
+grep -Eq '^HTTP/[0-9.]+ 200 ' <<<"$paid_response"
+grep -Eiq '^Payment-Receipt: .+' <<<"$paid_response"
+
 test "$(docker inspect --format '{{.Config.User}}' "$CONTAINER_NAME")" = "10001:10001"
-test -n "$(docker exec "$CONTAINER_NAME" find /home/app/.paygate/keys -type f -print -quit)"
 docker stop --time 30 "$CONTAINER_NAME" >/dev/null
 exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER_NAME")"
 case "$exit_code" in
