@@ -4,7 +4,7 @@ Public Spring Boot reference service for selling signed agent trust reports thro
 
 Live service: <https://paygate-agent-trust.fly.dev/>.
 
-The production API flow below is available after the deterministic [v0.1.2 release](https://github.com/greenharborlabs/paygate-agent-trust/releases/tag/v0.1.2) has been deployed and verified. Website publication remains blocked until that verification is complete.
+The production API flow below is available after the deterministic [v0.1.3 release](https://github.com/greenharborlabs/paygate-agent-trust/releases/tag/v0.1.3) has been deployed and verified. Website publication remains blocked until that verification is complete.
 
 ## Contents
 
@@ -247,7 +247,7 @@ export BASE_URL="https://paygate-agent-trust.fly.dev"
 
 ### Live Production Flow
 
-After v0.1.2 has been deployed and verified, the following commands are copy-pasteable against production. The final request is intentionally unauthenticated and should return `402 Payment Required`; a payer must then pay its challenge and retry with a valid `Authorization` credential.
+After v0.1.3 has been deployed and verified, the following commands are copy-pasteable against production. The final request is intentionally unauthenticated and should return `402 Payment Required`; a payer must then pay its challenge and retry with a valid `Authorization` credential.
 
 ```bash
 # Root discovery
@@ -635,7 +635,7 @@ curl -i "$BASE_URL/api/v1/trust/report?domain=example.com"
 curl -s "$BASE_URL/api/v1/trust/quote?domain=example.com"
 ```
 
-The report response should be `402 Payment Required` with `WWW-Authenticate` challenges for `L402` and `Payment`. Run the Breez helper from a separately controlled payer runner to verify the paid retry, receipt, and signed report. Production intentionally remains one Machine because rate limits and caches are process-local; distributed semantics are required before horizontal scaling. See `docs/PRODUCTION-RUNBOOK.md` and `docs/RELEASE-CHECKLIST.md`.
+The report response should be `402 Payment Required` with `WWW-Authenticate` challenges for `L402` and `Payment`. Run the Breez helper from a separately controlled payer runner to verify the paid retry, receipt, and signed report. Production intentionally remains one Machine because rate limits and caches are process-local; distributed semantics are required before horizontal scaling. See the [production runbook](docs/PRODUCTION-RUNBOOK.md), [release checklist](docs/RELEASE-CHECKLIST.md), and [changelog](CHANGELOG.md).
 
 ## Report Shape
 
