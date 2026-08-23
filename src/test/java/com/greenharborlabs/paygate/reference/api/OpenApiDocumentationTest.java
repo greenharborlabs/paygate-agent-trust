@@ -30,7 +30,7 @@ class OpenApiDocumentationTest {
     Map<String, Object> info = (Map<String, Object>) spec.get("info");
     assertThat(info)
         .containsEntry("title", "Paygate Agent Trust API")
-        .containsEntry("version", "0.1.2");
+        .containsEntry("version", "0.1.4");
 
     assertThat(spec.get("servers").toString()).contains("https://paygate-agent-trust.fly.dev");
 

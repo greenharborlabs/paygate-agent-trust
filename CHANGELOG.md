@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-23
+
+- Upgraded the Paygate Spring Boot starter and LNbits modules to 0.1.6.
+
 ## [0.1.3] - 2026-08-17
 
 - Upgraded both Paygate modules to 0.1.5 and Spring Boot to 4.0.7.
@@ -25,7 +29,8 @@
 - Added production validation, deterministic non-root containers, Fly deployment safety, tagged releases, and Breez paid verification.
 - Added protected dependency review and repeatable, non-deploying Fly production-secret staging.
 
-[Unreleased]: https://github.com/greenharborlabs/paygate-agent-trust/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/greenharborlabs/paygate-agent-trust/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/greenharborlabs/paygate-agent-trust/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/greenharborlabs/paygate-agent-trust/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/greenharborlabs/paygate-agent-trust/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/greenharborlabs/paygate-agent-trust/compare/v0.1.0...v0.1.1

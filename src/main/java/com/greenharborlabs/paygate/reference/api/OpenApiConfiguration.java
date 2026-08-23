@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
     info =
         @Info(
             title = "Paygate Agent Trust API",
-            version = "0.1.2",
+            version = "0.1.4",
             description =
                 "Public reference API for quoting, selling, signing, and verifying Paygate-backed agent trust reports.",
             contact = @Contact(name = "Green Harbor Labs"),
