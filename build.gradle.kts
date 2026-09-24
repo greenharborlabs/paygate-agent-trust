@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "4.0.7"
+    id("org.springframework.boot") version "4.0.8"
     id("io.spring.dependency-management") version "1.1.7"
     java
     pmd
@@ -20,7 +20,18 @@ repositories {
     maven(url = "https://central.sonatype.com/repository/maven-snapshots/")
 }
 
-val paygateVersion = "0.1.6"
+val paygateVersion = "0.1.7"
+
+// Boot 4.0.8's BOM still selects 11.0.24; match Paygate 0.1.7's patched Tomcat baseline.
+dependencyManagement {
+    dependencies {
+        dependencySet("org.apache.tomcat.embed:11.0.25") {
+            entry("tomcat-embed-core")
+            entry("tomcat-embed-el")
+            entry("tomcat-embed-websocket")
+        }
+    }
+}
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
