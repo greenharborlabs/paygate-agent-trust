@@ -1,5 +1,5 @@
 # Upgrade Paygate to 0.1.7 and deploy Agent Trust
-Status: review
+Status: closed
 Base revision: 996381b04f4f52acec4bd815a7a5f4f28f1b1469
 Review scope: build.gradle.kts, gradle.properties, CHANGELOG.md (implementation commit fc2dd73)
 
@@ -27,8 +27,14 @@ Run Agent Trust on Paygate starter and LNbits 0.1.7 in production under a new im
 ## Review
 Awaiting fresh-context review of implementation commit fc2dd73 against base 996381b04f4f52acec4bd815a7a5f4f28f1b1469. Both Paygate 0.1.7 POMs returned 200 from Maven Central; no local Maven 0.1.7 artifacts. Gradle runtime graph selects Paygate 0.1.7 and Tomcat core/websocket 11.0.25. `./gradlew clean quality --no-daemon` (tests, PMD, SpotBugs), shellcheck, Fly config validation and local container paid-test-mode smoke passed. Initial container attempt failed because port 18080 was occupied; `PORT=18087 scripts/container-smoke.sh` passed. Live production, real sats, tag ancestry and protected CI gates are unverified pending reviewed merge/release. No deployment was attempted.
 
+### Attempt 1
+Reviewed revision: 7f14369713966c3eb5bd3413815532f777a45c9c
+Verdict: pass
+Findings and dispositions: No findings; no rework required. Scoped files (build.gradle.kts, gradle.properties, CHANGELOG.md) are clean; the only post-implementation commit (7f14369) edits this task record and does not invalidate the reviewed implementation. Verified both Paygate modules resolve to 0.1.7, Spring Boot BOM/plugin resolve to 4.0.8, and the dependency-management override lifts tomcat-embed-core/el/websocket from the BOM's 11.0.24 to 11.0.25, matching the record's constraint. Service version 0.1.5 in gradle.properties and CHANGELOG.md is consistent; no secret values or preserved-topology changes were introduced. Downstream deployment/paid-smoke steps remain tracked as open tasks, not part of this implementation review.
+Verification: `./gradlew clean quality --no-daemon` (tests, PMD, SpotBugs, static-analysis gate) BUILD SUCCESSFUL; `shellcheck scripts/*.sh` clean; `flyctl config validate` valid; `PORT=<free> scripts/container-smoke.sh` exit 0 (paid-test-mode smoke, 402 challenge then paid 200 + Payment-Receipt); `dependencyInsight` confirms Paygate 0.1.7, Spring Boot 4.0.8, Tomcat 11.0.25; Maven Central 0.1.7 POMs return HTTP 200 for both Paygate modules.
+
 ## Outcome
-Implementation committed; release and deployment pending review.
+Upgrade implementation committed at fc2dd73 and passed fresh-context review Attempt 1 at 7f14369713966c3eb5bd3413815532f777a45c9c. [build.gradle.kts](../build.gradle.kts) selects both Paygate modules 0.1.7, Boot 4.0.8, and an explicit Tomcat 11.0.25 override because Boot's BOM selects 11.0.24; [gradle.properties](../gradle.properties) and [CHANGELOG.md](../CHANGELOG.md) prepare service v0.1.5. Existing [production migration and rollback guidance](../docs/PRODUCTION-RUNBOOK.md) remains applicable; no new behavior warranted a runbook or test change. Maven Central POM checks, runtime dependency insight, `./gradlew clean quality --no-daemon`, shellcheck, Fly config validation, and container paid-test-mode smoke on port 18087 passed (default port 18080 was occupied). Review found no issues and scoped files remain clean and unchanged since the reviewed revision. This closes the *reviewed upgrade implementation only*: release PR/CI, merge, tag, Fly health/production smoke, restricted real-sats paid smoke, and protected release finalization remain unverified and undone; follow the [release checklist](../docs/RELEASE-CHECKLIST.md) before claiming production success.
 
 ## Next action
-Fresh-context review, then reviewed release PR; only after approval and merge follow immutable tag, Fly and protected paid-smoke steps.
+Open and validate the reviewed v0.1.5 release PR following the [service release checklist](../docs/RELEASE-CHECKLIST.md).
